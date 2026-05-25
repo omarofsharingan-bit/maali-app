@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
@@ -16,7 +17,7 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDNU9NglqCC3pvAJ1okPf
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
 // ── Database ──────────────────────────────────────────────
 const pool = new Pool({
@@ -528,7 +529,11 @@ ${rawText.slice(0, 30000)}`;
 });
 
 // ── Start ─────────────────────────────────────────────────
-app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 Maali running on http://localhost:${PORT}`);

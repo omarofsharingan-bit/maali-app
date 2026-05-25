@@ -1288,6 +1288,90 @@
       z-index: 90; transition: all 0.2s;
     }
     .import-fab:hover { transform: translateY(-2px); box-shadow: 0 8px 28px var(--teal-g); }
+  /* ══ TUTORIAL ══════════════════════════════════════════ */
+  #tutorialOverlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease;
+    backdrop-filter: blur(6px);
+  }
+  #tutorialOverlay.tut-show { opacity: 1; pointer-events: all; }
+
+  .tut-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 28px;
+    padding: 44px 40px 36px;
+    max-width: 500px;
+    width: 92%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  }
+  .tut-step { display: none; }
+  .tut-step.tut-active { display: block; animation: tutFade 0.4s ease; }
+  @keyframes tutFade {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .tut-emoji { font-size: 68px; margin-bottom: 18px; line-height: 1; }
+  .tut-title { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .tut-desc  { font-size: 14.5px; color: var(--text-muted); line-height: 1.8; margin-bottom: 24px; }
+
+  .tut-visual {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+    text-align: right;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 2;
+  }
+  .tut-visual .tut-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .tut-visual .tut-row:last-child { border-bottom: none; }
+  .tut-badge {
+    background: rgba(31,187,138,0.15); color: var(--accent);
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; white-space: nowrap;
+  }
+
+  .tut-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; }
+  .tut-dot  { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.15); transition: all .3s; }
+  .tut-dot.tut-dot-active { width: 26px; border-radius: 4px; background: var(--accent); }
+
+  .tut-btns  { display: flex; gap: 10px; justify-content: center; }
+  .tut-next  {
+    flex: 1; max-width: 220px;
+    background: var(--accent); color: #fff;
+    border: none; padding: 13px 24px;
+    border-radius: 12px; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+  .tut-next:hover { transform: translateY(-2px); filter: brightness(1.1); }
+  .tut-skip {
+    background: transparent; color: var(--text-muted);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 13px 18px; border-radius: 12px;
+    font-size: 13px; cursor: pointer; transition: all .2s;
+  }
+  .tut-skip:hover { border-color: rgba(255,255,255,0.3); color: var(--text); }
+  .tut-demo {
+    flex: 1; max-width: 200px;
+    background: rgba(255,255,255,0.07); color: var(--text);
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 13px 24px; border-radius: 12px;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s;
+  }
+  .tut-demo:hover { background: rgba(255,255,255,0.12); }
+
   </style>
 </head>
 <body>
@@ -2198,14 +2282,58 @@
         const r = await apiFetch(`${API}/transactions`);
         const d = await r.json();
         allTx = d.transactions || [];
-        if (allTx.length === 0) {
-          await apiFetch(`${API}/demo/load`, { method: 'POST' });
-          const r2 = await apiFetch(`${API}/transactions`);
-          const d2 = await r2.json();
-          allTx = d2.transactions || [];
+        if (allTx.length === 0 && !localStorage.getItem('maali-tutorial-done')) {
+          showTutorial();
+          return;
         }
       } catch(e) {}
       loadDash();
+    }
+
+    /* ── TUTORIAL ── */
+    let tutCurrentStep = 1;
+    const TUT_TOTAL = 5;
+
+    function showTutorial() {
+      const overlay = document.getElementById('tutorialOverlay');
+      overlay.classList.add('tut-show');
+    }
+
+    function hideTutorial() {
+      document.getElementById('tutorialOverlay').classList.remove('tut-show');
+      localStorage.setItem('maali-tutorial-done', '1');
+    }
+
+    function tutGoTo(step) {
+      document.querySelectorAll('.tut-step').forEach(s => s.classList.remove('tut-active'));
+      document.getElementById('tutStep' + step).classList.add('tut-active');
+      tutCurrentStep = step;
+    }
+
+    function tutNext() {
+      if (tutCurrentStep < TUT_TOTAL) tutGoTo(tutCurrentStep + 1);
+    }
+
+    function tutSkip() {
+      hideTutorial();
+      loadDash();
+    }
+
+    async function tutLoadDemo() {
+      hideTutorial();
+      try {
+        await apiFetch(`${API}/demo/load`, { method: 'POST' });
+        const r = await apiFetch(`${API}/transactions`);
+        const d = await r.json();
+        allTx = d.transactions || [];
+      } catch(e) {}
+      loadDash();
+    }
+
+    function tutImport() {
+      hideTutorial();
+      loadDash();
+      setTimeout(() => openImport(), 400);
     }
     /* ── THEME TOGGLE ── */
     function toggleTheme() {
@@ -2387,6 +2515,130 @@
           <i class="ti ti-check"></i> استيراد
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ TUTORIAL OVERLAY ══════════════════════════════════ -->
+  <div id="tutorialOverlay">
+    <div class="tut-card">
+
+      <!-- Step 1: Welcome -->
+      <div class="tut-step tut-active" id="tutStep1">
+        <div class="tut-emoji">👋</div>
+        <div class="tut-title">مرحباً بك في مالي!</div>
+        <div class="tut-desc">مساعدك المالي الذكي.<br>أضف بيانات حسابك المصرفي وسنساعدك على فهم إنفاقك، تحقيق أهدافك، وتحليل كل ريال تنفقه.</div>
+        <div class="tut-visual" style="text-align:center; font-size:15px;">
+          <div style="color:var(--accent); font-weight:700; font-size:17px; margin-bottom:8px;">ماذا يقدم مالي؟</div>
+          <div class="tut-row"><span>📊</span><span>لوحة تحكم مالية ذكية</span></div>
+          <div class="tut-row"><span>🤖</span><span>محادثة مع الذكاء الاصطناعي</span></div>
+          <div class="tut-row"><span>📄</span><span>استيراد كشوف أي بنك</span></div>
+          <div class="tut-row"><span>🎯</span><span>تتبع الأهداف المالية</span></div>
+        </div>
+        <div class="tut-dots">
+          <div class="tut-dot tut-dot-active"></div><div class="tut-dot"></div>
+          <div class="tut-dot"></div><div class="tut-dot"></div><div class="tut-dot"></div>
+        </div>
+        <div class="tut-btns">
+          <button class="tut-next" onclick="tutNext()">التالي ←</button>
+          <button class="tut-skip" onclick="tutSkip()">تخطي</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Import -->
+      <div class="tut-step" id="tutStep2">
+        <div class="tut-emoji">📄</div>
+        <div class="tut-title">استورد كشف حسابك</div>
+        <div class="tut-desc">ارفع ملف PDF أو CSV من أي بنك سعودي وسيقوم الذكاء الاصطناعي بتحليل جميع معاملاتك تلقائياً خلال ثوانٍ.</div>
+        <div class="tut-visual">
+          <div style="text-align:center; margin-bottom:12px; color:var(--text); font-size:13px;">كيف تستورد بياناتك؟</div>
+          <div class="tut-row"><span style="color:var(--accent); font-weight:700;">١</span><span>اضغط على زر <b>↑</b> في الشريط العلوي</span></div>
+          <div class="tut-row"><span style="color:var(--accent); font-weight:700;">٢</span><span>اسحب ملف PDF/CSV أو اختره من جهازك</span></div>
+          <div class="tut-row"><span style="color:var(--accent); font-weight:700;">٣</span><span>انتظر ثوانٍ ← ستظهر كل معاملاتك</span></div>
+        </div>
+        <div class="tut-dots">
+          <div class="tut-dot"></div><div class="tut-dot tut-dot-active"></div>
+          <div class="tut-dot"></div><div class="tut-dot"></div><div class="tut-dot"></div>
+        </div>
+        <div class="tut-btns">
+          <button class="tut-next" onclick="tutNext()">التالي ←</button>
+          <button class="tut-skip" onclick="tutSkip()">تخطي</button>
+        </div>
+      </div>
+
+      <!-- Step 3: AI Chat -->
+      <div class="tut-step" id="tutStep3">
+        <div class="tut-emoji">🤖</div>
+        <div class="tut-title">اسأل المساعد الذكي</div>
+        <div class="tut-desc">بعد إضافة بياناتك، يمكنك سؤال الذكاء الاصطناعي عن أي شيء يخص أموالك بالعربية.</div>
+        <div class="tut-visual">
+          <div style="text-align:center; margin-bottom:10px; color:var(--text); font-size:13px;">أمثلة على الأسئلة</div>
+          <div class="tut-row"><span>💬</span><span>"كم صرفت على المطاعم هذا الشهر؟"</span></div>
+          <div class="tut-row"><span>💬</span><span>"قارن إنفاقي بين يناير وأبريل"</span></div>
+          <div class="tut-row"><span>💬</span><span>"ما أكبر 5 مصاريف عندي؟"</span></div>
+          <div class="tut-row"><span>💬</span><span>"كم وفّرت هذا الشهر؟"</span></div>
+        </div>
+        <div class="tut-dots">
+          <div class="tut-dot"></div><div class="tut-dot"></div>
+          <div class="tut-dot tut-dot-active"></div><div class="tut-dot"></div><div class="tut-dot"></div>
+        </div>
+        <div class="tut-btns">
+          <button class="tut-next" onclick="tutNext()">التالي ←</button>
+          <button class="tut-skip" onclick="tutSkip()">تخطي</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Goals -->
+      <div class="tut-step" id="tutStep4">
+        <div class="tut-emoji">🎯</div>
+        <div class="tut-title">حدد أهدافك المالية</div>
+        <div class="tut-desc">سيارة، شقة، سفر، صندوق طوارئ... أضف أهدافك المالية وتابع مدى تقدمك نحو تحقيقها.</div>
+        <div class="tut-visual">
+          <div style="margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text); margin-bottom:6px;">
+              <span>🚗 سيارة هوندا</span><span style="color:var(--accent);">28%</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.08); border-radius:8px; height:8px; overflow:hidden;">
+              <div style="width:28%; height:100%; background:var(--accent); border-radius:8px;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text); margin-bottom:6px;">
+              <span>🏠 دفعة أولى للشقة</span><span style="color:#f5a623;">10%</span>
+            </div>
+            <div style="background:rgba(255,255,255,0.08); border-radius:8px; height:8px; overflow:hidden;">
+              <div style="width:10%; height:100%; background:#f5a623; border-radius:8px;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tut-dots">
+          <div class="tut-dot"></div><div class="tut-dot"></div>
+          <div class="tut-dot"></div><div class="tut-dot tut-dot-active"></div><div class="tut-dot"></div>
+        </div>
+        <div class="tut-btns">
+          <button class="tut-next" onclick="tutNext()">التالي ←</button>
+          <button class="tut-skip" onclick="tutSkip()">تخطي</button>
+        </div>
+      </div>
+
+      <!-- Step 5: Get Started -->
+      <div class="tut-step" id="tutStep5">
+        <div class="tut-emoji">🚀</div>
+        <div class="tut-title">أنت جاهز! لنبدأ</div>
+        <div class="tut-desc">اختر كيف تريد البدء:</div>
+        <div class="tut-visual" style="text-align:center;">
+          <div style="color:var(--text); font-size:14px; margin-bottom:4px;"><b>استورد ملف PDF أو CSV</b></div>
+          <div style="color:var(--text-muted); font-size:12px;">من بنك الراجحي، الأهلي، stc pay، أو أي بنك سعودي آخر</div>
+        </div>
+        <div class="tut-dots">
+          <div class="tut-dot"></div><div class="tut-dot"></div>
+          <div class="tut-dot"></div><div class="tut-dot"></div><div class="tut-dot tut-dot-active"></div>
+        </div>
+        <div class="tut-btns">
+          <button class="tut-next" onclick="tutImport()" style="background:var(--accent);">↑ استورد بياناتي</button>
+          <button class="tut-demo" onclick="tutLoadDemo()">جرب بيانات تجريبية</button>
+        </div>
+      </div>
+
     </div>
   </div>
 

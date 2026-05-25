@@ -1,0 +1,26 @@
+app = "maali-finance"
+primary_region = "dxb"
+
+[build]
+
+[env]
+  PORT = "3000"
+  NODE_ENV = "production"
+  DB_PATH = "/data/maali.db"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "maali_data"
+  destination = "/data"

@@ -530,10 +530,6 @@ ${rawText.slice(0, 30000)}`;
 
 // ── Start ─────────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
 
 app.listen(PORT, () => {
   console.log(`🚀 Maali running on http://localhost:${PORT}`);

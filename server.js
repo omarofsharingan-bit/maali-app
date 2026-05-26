@@ -18,7 +18,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
 const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDNU9NglqCC3pvAJ1okPfrsmcNSlsMbdMY';
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+
+// Helper: call Groq (free, OpenAI-compatible)
+async function groqChat(prompt, maxTokens = 4096) {
+  const res = await axios.post(
+    'https://api.groq.com/openai/v1/chat/completions',
+    {
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0.2
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 60000
+    }
+  );
+  return res.data.choices[0].message.content;
+}
 
 // Middleware
 app.use(cors());
@@ -382,14 +403,11 @@ ${financialContext}
 
 سؤال المستخدم: ${userMessage}`;
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-      { contents: [{ parts: [{ text: fullPrompt }] }] },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-    res.json(response.data);
+    const text = await groqChat(fullPrompt);
+    // Return in Gemini-compatible shape so the frontend doesn't need changes
+    res.json({ candidates: [{ content: { parts: [{ text }] } }] });
   } catch (error) {
-    console.error('Gemini error:', error.response?.data || error.message);
+    console.error('Groq error:', error.response?.data || error.message);
     res.status(500).json({ error: { message: 'حدث خطأ في الاتصال بالذكاء الاصطناعي' } });
   }
 });
@@ -505,13 +523,7 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
 النص:
 ${rawText.slice(0, 30000)}`;
 
-    const geminiRes = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      { contents: [{ parts: [{ text: prompt }] }] },
-      { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
-    );
-
-    const aiText = geminiRes.data.candidates[0].content.parts[0].text;
+    const aiText = await groqChat(prompt);
     const match = aiText.match(/\[[\s\S]*\]/);
     if (!match) return res.status(422).json({ error: 'AI could not parse transactions', raw: aiText.slice(0,500) });
 

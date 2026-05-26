@@ -6,7 +6,13 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const axios = require('axios');
 const multer = require('multer');
-const pdfParse = require('pdf-parse');
+let pdfParse;
+try {
+  const _pdfMod = require('pdf-parse');
+  pdfParse = typeof _pdfMod === 'function' ? _pdfMod : _pdfMod.default;
+} catch (e) {
+  try { pdfParse = require('pdf-parse/lib/pdf-parse.js'); } catch (_) {}
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -473,6 +479,9 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
   let rawText = '';
   try {
     if (ext === 'pdf') {
+      if (typeof pdfParse !== 'function') {
+        return res.status(500).json({ error: 'PDF parsing is not available on this server. Please use CSV or TXT.' });
+      }
       const parsed = await pdfParse(req.file.buffer);
       rawText = parsed.text;
     } else {

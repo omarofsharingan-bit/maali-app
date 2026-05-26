@@ -18,21 +18,21 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
 const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
-// Helper: call Groq (free, OpenAI-compatible)
+// Helper: call OpenRouter (free tier, no credit card needed)
 async function groqChat(prompt, maxTokens = 4096) {
   const res = await axios.post(
-    'https://api.groq.com/openai/v1/chat/completions',
+    'https://openrouter.ai/api/v1/chat/completions',
     {
-      model: 'llama-3.3-70b-versatile',
+      model: 'google/gemma-3-27b-it:free',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: maxTokens,
       temperature: 0.2
     },
     {
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json'
       },
       timeout: 60000

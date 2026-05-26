@@ -18,7 +18,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
 const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
 
 // Helper: call OpenRouter (free tier, no credit card needed)
 async function groqChat(prompt, maxTokens = 4096) {

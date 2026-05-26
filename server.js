@@ -18,22 +18,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
 const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDNU9NglqCC3pvAJ1okPfrsmcNSlsMbdMY';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
 
-// Helper: call Gemini AI
+// Helper: call OpenRouter (free GPT-OSS-120B)
 async function groqChat(prompt, maxTokens = 4096) {
   const res = await axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    'https://openrouter.ai/api/v1/chat/completions',
     {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 }
+      model: 'openai/gpt-oss-120b:free',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0.2
     },
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://maali-app.onrender.com',
+        'X-Title': 'Maali',
+        'Content-Type': 'application/json'
+      },
       timeout: 60000
     }
   );
-  return res.data.candidates[0].content.parts[0].text;
+  return res.data.choices[0].message.content;
 }
 
 // Middleware

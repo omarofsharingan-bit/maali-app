@@ -17,7 +17,7 @@ services:
           name: maali-db
           property: connectionString
       - key: GEMINI_API_KEY
-        value: AIzaSyDP9lQOpsxmGrX1X2yJNI_YEATVM3awP2Y
+        sync: false  # set manually in Render dashboard so it never leaks to git
       - key: JWT_SECRET
         generateValue: true
       - key: NODE_ENV

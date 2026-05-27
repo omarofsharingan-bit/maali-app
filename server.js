@@ -18,8 +18,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
 const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
-// Hardcoded to bypass stale Render env var pointing at old disabled key
-const GEMINI_API_KEY = 'AIzaSyDP9lQOpsxmGrX1X2yJNI_YEATVM3awP2Y';
+// Read from env var ONLY — never hardcode (Google auto-disables leaked keys)
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+if (!GEMINI_API_KEY) console.error('⚠️  GEMINI_API_KEY env var is not set!');
 
 // Helper: call Gemini with retry + model fallback for 503 overload
 async function groqChat(prompt, maxTokens = 4096) {

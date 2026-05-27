@@ -260,9 +260,15 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
 
 app.get('/api/summary', authenticateToken, async (req, res) => {
   try {
+    // Use the month of the user's most recent transaction (so imports show up).
+    // Falls back to current month if no transactions exist.
+    const monthExprSql = `COALESCE(
+      (SELECT TO_CHAR(MAX(transaction_date),'YYYY-MM') FROM transactions WHERE user_id=$1),
+      TO_CHAR(NOW(),'YYYY-MM')
+    )`;
     const [inc, exp, cnt] = await Promise.all([
-      pool.query(`SELECT SUM(amount) as total FROM transactions WHERE user_id=$1 AND amount>0 AND TO_CHAR(transaction_date,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')`, [req.userId]),
-      pool.query(`SELECT SUM(ABS(amount)) as total FROM transactions WHERE user_id=$1 AND amount<0 AND TO_CHAR(transaction_date,'YYYY-MM')=TO_CHAR(NOW(),'YYYY-MM')`, [req.userId]),
+      pool.query(`SELECT SUM(amount) as total FROM transactions WHERE user_id=$1 AND amount>0 AND TO_CHAR(transaction_date,'YYYY-MM')=${monthExprSql}`, [req.userId]),
+      pool.query(`SELECT SUM(ABS(amount)) as total FROM transactions WHERE user_id=$1 AND amount<0 AND TO_CHAR(transaction_date,'YYYY-MM')=${monthExprSql}`, [req.userId]),
       pool.query(`SELECT COUNT(*) as count FROM transactions WHERE user_id=$1`, [req.userId])
     ]);
     const income   = parseFloat(inc.rows[0].total  || 0);

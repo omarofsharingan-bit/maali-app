@@ -2422,6 +2422,9 @@
 
       const formData = new FormData();
       formData.append('file', file);
+      if (document.getElementById('replaceAllTx')?.checked) {
+        formData.append('replaceAll', 'true');
+      }
 
       try {
         const r = await apiFetch(`${API}/import`, { method: 'POST', body: formData });
@@ -2512,6 +2515,11 @@
       </div>
 
       <div class="import-status" id="importStatus">ارفع ملف CSV أو PDF من كشف حسابك البنكي</div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-top:6px;cursor:pointer;justify-content:center">
+        <input type="checkbox" id="replaceAllTx" style="cursor:pointer">
+        <span>استبدال جميع المعاملات السابقة (سيتم حذف كل البيانات الحالية)</span>
+      </label>
 
       <div class="import-preview" id="importPreview"></div>
 

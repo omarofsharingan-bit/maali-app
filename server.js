@@ -592,6 +592,12 @@ ${rawText.slice(0, 30000)}`;
       return res.status(422).json({ error: 'No transactions found in file' });
     }
 
+    // If user opted to replace, wipe all existing transactions first
+    if (req.body.replaceAll === 'true' || req.body.replaceAll === true) {
+      await pool.query('DELETE FROM transactions WHERE user_id = $1', [req.userId]);
+      console.log(`Wiped all transactions for user ${req.userId} before import`);
+    }
+
     const timestamp = Date.now();
     let inserted = 0;
     for (const [i, t] of transactions.entries()) {

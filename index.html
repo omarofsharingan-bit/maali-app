@@ -1266,6 +1266,10 @@
     .import-status {
       font-size: 13.5px; color: var(--text2); text-align: center;
       min-height: 20px;
+      white-space: pre-wrap;
+      max-height: 240px;
+      overflow-y: auto;
+      word-break: break-word;
     }
     .import-status.ok { color: var(--teal); }
     .import-status.err { color: var(--red); }
@@ -2424,7 +2428,9 @@
         const data = await r.json();
 
         if (!r.ok) {
-          setImportStatus('❌ ' + (data.error || 'فشل التحليل'), 'err');
+          let msg = '❌ ' + (data.error || 'فشل التحليل');
+          if (data.raw) msg += '\n\nرد الذكاء الاصطناعي:\n' + data.raw;
+          setImportStatus(msg, 'err');
           return;
         }
 

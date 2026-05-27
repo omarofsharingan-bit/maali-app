@@ -32,20 +32,27 @@ async function groqChat(prompt, maxTokens = 4096) {
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
           {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 }
+            generationConfig: {
+              maxOutputTokens: maxTokens,
+              temperature: 0.2,
+              thinkingConfig: { thinkingBudget: 0 } // disable thinking mode for 2.5 models
+            }
           },
           { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
         );
-        return res.data.candidates[0].content.parts[0].text;
+        // Join all non-thought parts (gemini can return multiple parts)
+        const parts = res.data.candidates?.[0]?.content?.parts || [];
+        const text = parts.filter(p => !p.thought).map(p => p.text || '').join('').trim();
+        if (text) return text;
+        throw new Error('Empty response');
       } catch (err) {
         lastErr = err;
         const code = err.response?.status;
-        // 503 = overloaded, 429 = rate limit → retry. Other errors → next model.
         if (code === 503 || code === 429) {
           await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
           continue;
         }
-        break; // try next model
+        break;
       }
     }
   }
@@ -521,7 +528,12 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
     }
 
     const prompt = `أنت محلل مصرفي. استخرج جميع المعاملات المالية من النص التالي.
-أعد JSON فقط — مصفوفة بهذا الشكل بدون أي نص إضافي:
+
+⚠️ مهم جداً: أعد JSON صالح فقط، بدون أي نص قبله أو بعده، بدون markdown، بدون شرح.
+يجب أن تبدأ إجابتك بـ [ وتنتهي بـ ]
+إذا لم توجد معاملات، أعد: []
+
+الشكل المطلوب:
 [{"date":"YYYY-MM-DD","amount":number,"description":"string","category":"string"}]
 
 قواعد:
@@ -535,10 +547,24 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
 ${rawText.slice(0, 30000)}`;
 
     const aiText = await groqChat(prompt);
-    const match = aiText.match(/\[[\s\S]*\]/);
-    if (!match) return res.status(422).json({ error: 'AI could not parse transactions', raw: aiText.slice(0,500) });
+    console.log('AI raw response (first 500 chars):', aiText.slice(0, 500));
 
-    const transactions = JSON.parse(match[0]);
+    // Strip markdown code fences if present
+    let cleaned = aiText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+    // Find the JSON array — greedy match
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (!match) {
+      console.error('No JSON array found in AI response:', aiText);
+      return res.status(422).json({ error: 'AI could not parse transactions', raw: aiText.slice(0,500) });
+    }
+
+    let transactions;
+    try {
+      transactions = JSON.parse(match[0]);
+    } catch (parseErr) {
+      console.error('JSON parse error:', parseErr.message, 'match:', match[0].slice(0,500));
+      return res.status(422).json({ error: 'AI returned malformed JSON', raw: match[0].slice(0,500) });
+    }
     if (!Array.isArray(transactions) || transactions.length === 0) {
       return res.status(422).json({ error: 'No transactions found in file' });
     }

@@ -18,7 +18,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
 const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDP9lQOpsxmGrX1X2yJNI_YEATVM3awP2Y';
+// Hardcoded to bypass stale Render env var pointing at old disabled key
+const GEMINI_API_KEY = 'AIzaSyDP9lQOpsxmGrX1X2yJNI_YEATVM3awP2Y';
 
 // Helper: call Gemini 2.5 Flash
 async function groqChat(prompt, maxTokens = 4096) {

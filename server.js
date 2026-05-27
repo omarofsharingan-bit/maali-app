@@ -21,17 +21,35 @@ const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f
 // Hardcoded to bypass stale Render env var pointing at old disabled key
 const GEMINI_API_KEY = 'AIzaSyDP9lQOpsxmGrX1X2yJNI_YEATVM3awP2Y';
 
-// Helper: call Gemini 2.5 Flash
+// Helper: call Gemini with retry + model fallback for 503 overload
 async function groqChat(prompt, maxTokens = 4096) {
-  const res = await axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 }
-    },
-    { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
-  );
-  return res.data.candidates[0].content.parts[0].text;
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
+  let lastErr;
+  for (const model of models) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: maxTokens, temperature: 0.2 }
+          },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
+        );
+        return res.data.candidates[0].content.parts[0].text;
+      } catch (err) {
+        lastErr = err;
+        const code = err.response?.status;
+        // 503 = overloaded, 429 = rate limit → retry. Other errors → next model.
+        if (code === 503 || code === 429) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        break; // try next model
+      }
+    }
+  }
+  throw lastErr;
 }
 
 // Middleware

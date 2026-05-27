@@ -547,24 +547,40 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
 النص:
 ${rawText.slice(0, 30000)}`;
 
-    const aiText = await groqChat(prompt);
-    console.log('AI raw response (first 500 chars):', aiText.slice(0, 500));
+    const aiText = await groqChat(prompt, 32768);
+    console.log('AI raw response length:', aiText.length);
 
     // Strip markdown code fences if present
     let cleaned = aiText.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
-    // Find the JSON array — greedy match
-    const match = cleaned.match(/\[[\s\S]*\]/);
-    if (!match) {
-      console.error('No JSON array found in AI response:', aiText);
+
+    // Find the opening bracket
+    const startIdx = cleaned.indexOf('[');
+    if (startIdx === -1) {
       return res.status(422).json({ error: 'AI could not parse transactions', raw: aiText.slice(0,500) });
     }
+    cleaned = cleaned.slice(startIdx);
 
     let transactions;
     try {
-      transactions = JSON.parse(match[0]);
+      // Try to parse the full array first
+      const endIdx = cleaned.lastIndexOf(']');
+      if (endIdx !== -1) {
+        try { transactions = JSON.parse(cleaned.slice(0, endIdx + 1)); } catch(_) {}
+      }
+      // If that fails, salvage complete transaction objects from a possibly-truncated array
+      if (!transactions) {
+        const objects = [];
+        const regex = /\{\s*"date"[\s\S]*?\}/g;
+        let m;
+        while ((m = regex.exec(cleaned)) !== null) {
+          try { objects.push(JSON.parse(m[0])); } catch(_) {}
+        }
+        if (objects.length > 0) transactions = objects;
+      }
+      if (!transactions) throw new Error('Could not extract any transactions');
     } catch (parseErr) {
-      console.error('JSON parse error:', parseErr.message, 'match:', match[0].slice(0,500));
-      return res.status(422).json({ error: 'AI returned malformed JSON', raw: match[0].slice(0,500) });
+      console.error('JSON parse error:', parseErr.message);
+      return res.status(422).json({ error: 'AI returned malformed JSON', raw: aiText.slice(0,800) });
     }
     if (!Array.isArray(transactions) || transactions.length === 0) {
       return res.status(422).json({ error: 'No transactions found in file' });

@@ -423,18 +423,66 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     const financialContext = buildFinancialContext(txResult.rows, goalsResult.rows);
     const fullPrompt = `أنت محلل مالي ذكي ومتخصص. لديك بيانات المعاملات الحقيقية للمستخدم.
 أجب على أسئلته بدقة تامة بناءً على هذه البيانات فقط. استخدم الأرقام الحقيقية.
-أجب باللغة العربية دائماً. كن محدداً ومختصراً.
+أجب باللغة العربية دائماً. أجب بإيجاز شديد — 3 إلى 6 أسطر كحد أقصى، إلا إذا طلب المستخدم تفاصيل أكثر.
 
 ${financialContext}
 
 سؤال المستخدم: ${userMessage}`;
 
-    const text = await groqChat(fullPrompt);
-    // Return in Gemini-compatible shape so the frontend doesn't need changes
-    res.json({ candidates: [{ content: { parts: [{ text }] } }] });
+    // Stream the answer so text appears immediately
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    let streamed = false;
+    for (const model of models) {
+      try {
+        const gRes = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
+          {
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: { maxOutputTokens: 1024, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } }
+          },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 60000, responseType: 'stream' }
+        );
+        await new Promise((resolve, reject) => {
+          let buf = '';
+          gRes.data.on('data', chunk => {
+            buf += chunk.toString('utf8');
+            let idx;
+            while ((idx = buf.indexOf('\n')) !== -1) {
+              const line = buf.slice(0, idx).trim();
+              buf = buf.slice(idx + 1);
+              if (!line.startsWith('data:')) continue;
+              const payload = line.slice(5).trim();
+              if (!payload || payload === '[DONE]') continue;
+              try {
+                const j = JSON.parse(payload);
+                const parts = j.candidates?.[0]?.content?.parts || [];
+                const t = parts.filter(p => !p.thought).map(p => p.text || '').join('');
+                if (t) { streamed = true; res.write(t); }
+              } catch {}
+            }
+          });
+          gRes.data.on('end', resolve);
+          gRes.data.on('error', reject);
+        });
+        return res.end();
+      } catch (err) {
+        console.error(`Stream ${model} failed:`, err.response?.status || err.message);
+        if (streamed) return res.end(); // partial answer already sent — stop here
+      }
+    }
+
+    // Streaming failed entirely → non-streaming fallback (still plain text)
+    const text = await groqChat(fullPrompt, 1024);
+    res.write(text);
+    res.end();
   } catch (error) {
-    console.error('Groq error:', error.response?.data || error.message);
-    res.status(500).json({ error: { message: 'حدث خطأ في الاتصال بالذكاء الاصطناعي' } });
+    console.error('Chat error:', error.response?.data || error.message);
+    if (!res.headersSent) res.status(500).json({ error: { message: 'حدث خطأ في الاتصال بالذكاء الاصطناعي' } });
+    else res.end();
   }
 });
 

@@ -2270,10 +2270,33 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: text })
         });
-        const d = await r.json();
-        document.getElementById('typing')?.remove();
-        if (d.error) addMsg('ai', '❌ ' + d.error.message);
-        else addMsg('ai', d.candidates[0].content.parts[0].text.replace(/\n/g, '<br>'));
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          document.getElementById('typing')?.remove();
+          addMsg('ai', '❌ ' + (d.error?.message || 'خطأ في الخادم'));
+          return;
+        }
+        // Stream the reply chunk by chunk
+        const reader  = r.body.getReader();
+        const decoder = new TextDecoder();
+        const box     = document.getElementById('chatBox');
+        let full = '', bubble = null;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          full += decoder.decode(value, { stream: true });
+          if (!bubble) {
+            document.getElementById('typing')?.remove();
+            addMsg('ai', '');
+            bubble = box.lastElementChild.querySelector('.bubble');
+          }
+          bubble.innerHTML = full.replace(/</g, '&lt;').replace(/\n/g, '<br>');
+          box.scrollTop = box.scrollHeight;
+        }
+        if (!full) {
+          document.getElementById('typing')?.remove();
+          addMsg('ai', '❌ لم يصل رد من المساعد');
+        }
       } catch(e) {
         document.getElementById('typing')?.remove();
         addMsg('ai', '❌ خطأ في الاتصال بالخادم');

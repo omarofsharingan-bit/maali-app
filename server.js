@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -68,7 +69,7 @@ app.use(express.static(path.join(__dirname)));
 // ── Database ──────────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL || '') ? false : { rejectUnauthorized: false }
 });
 
 async function initDB() {
@@ -612,6 +613,16 @@ ${rawText.slice(0, 30000)}`;
   } catch (err) {
     console.error('Import error:', err.message);
     res.status(500).json({ error: 'Import failed: ' + err.message });
+  }
+});
+
+// ── Health check ─────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ok: true, db: 'connected', dbUrl: process.env.DATABASE_URL ? 'set' : 'MISSING' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message, dbUrl: process.env.DATABASE_URL ? 'set' : 'MISSING' });
   }
 });
 

@@ -2392,6 +2392,7 @@
        IMPORT MODAL
     ══════════════════════════════════════════════════ */
     let importedTransactions = [];
+    let importedCount = 0;
 
     function openImport() {
       document.getElementById('importOverlay').classList.add('open');
@@ -2402,6 +2403,7 @@
     }
     function resetImport() {
       importedTransactions = [];
+      importedCount = 0;
       document.getElementById('importStatus').textContent = 'ارفع ملف CSV أو PDF من كشف حسابك البنكي';
       document.getElementById('importStatus').className = 'import-status';
       document.getElementById('importPreview').classList.remove('visible');
@@ -2461,8 +2463,11 @@
         }
 
         importedTransactions = data.transactions || [];
+        // data.transactions is a 20-row preview — use the server's real counts
+        importedCount = data.inserted !== undefined ? data.inserted : importedTransactions.length;
+        const dupNote = data.duplicates > 0 ? ` (تم تجاهل ${data.duplicates} مكررة)` : '';
         setImportStatus(
-          `✅ تم استخراج ${data.total} معاملة — اضغط "استيراد" للحفظ`,
+          `✅ تم استخراج ${data.total} معاملة، حُفظ منها ${importedCount}${dupNote} — اضغط "استيراد" للعرض`,
           'ok'
         );
         showPreview(importedTransactions.slice(0, 15), data.total);
@@ -2505,7 +2510,7 @@
       closeImport();
       btn.textContent = 'استيراد';
       // Show success
-      alert(`✅ تم استيراد ${importedTransactions.length} معاملة بنجاح!`);
+      alert(`✅ تم استيراد ${importedCount} معاملة بنجاح!`);
     }
 
     function setImportStatus(msg, cls) {

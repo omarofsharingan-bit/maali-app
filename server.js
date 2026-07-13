@@ -4,7 +4,12 @@ const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
+const crypto = require('crypto');
+const { Pool, types } = require('pg');
+// Return DATE columns as plain 'YYYY-MM-DD' strings. Letting pg parse them into
+// JS Date objects shifts month-boundary dates into the previous day (via UTC
+// serialization) on any server whose timezone is ahead of UTC.
+types.setTypeParser(1082, v => v);
 const axios = require('axios');
 const multer = require('multer');
 let pdfParse;
@@ -24,21 +29,27 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) console.error('⚠️  GEMINI_API_KEY env var is not set!');
 
 // Helper: call Gemini with retry + model fallback for 503 overload
-async function groqChat(prompt, maxTokens = 4096) {
+async function groqChat(prompt, maxTokens = 4096, opts = {}) {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
   let lastErr;
   for (const model of models) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
+        const generationConfig = {
+          // gemini-2.0 models cap output at 8192 tokens; asking for more is a 400
+          maxOutputTokens: model.includes('2.0') ? Math.min(maxTokens, 8192) : maxTokens,
+          temperature: opts.temperature !== undefined ? opts.temperature : 0.2,
+          thinkingConfig: { thinkingBudget: 0 } // disable thinking mode for 2.5 models
+        };
+        if (opts.responseSchema) {
+          generationConfig.responseMimeType = 'application/json';
+          generationConfig.responseSchema = opts.responseSchema;
+        }
         const res = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
           {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              maxOutputTokens: maxTokens,
-              temperature: 0.2,
-              thinkingConfig: { thinkingBudget: 0 } // disable thinking mode for 2.5 models
-            }
+            generationConfig
           },
           { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
         );
@@ -93,14 +104,25 @@ async function initDB() {
   await pool.query(`CREATE TABLE IF NOT EXISTS transactions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
-    transaction_id TEXT UNIQUE,
+    transaction_id TEXT,
     amount REAL NOT NULL,
     currency TEXT DEFAULT 'SAR',
     description TEXT,
     category TEXT,
     transaction_date DATE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT transactions_user_tx_unique UNIQUE (user_id, transaction_id)
   )`);
+
+  // Migration for databases created before transaction_id was unique per user:
+  // the old global UNIQUE meant fixed ids (demo dm-*, bank tx ids) could only
+  // ever be inserted for the first user who claimed them.
+  await pool.query(`DO $$ BEGIN
+    ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_transaction_id_key;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'transactions_user_tx_unique') THEN
+      ALTER TABLE transactions ADD CONSTRAINT transactions_user_tx_unique UNIQUE (user_id, transaction_id);
+    END IF;
+  END $$`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS goals (
     id SERIAL PRIMARY KEY,
@@ -235,7 +257,7 @@ app.post('/api/bank/sync-transactions', authenticateToken, async (req, res) => {
     let inserted = 0;
     for (const tx of txs) {
       const r = await pool.query(
-        'INSERT INTO transactions (user_id, transaction_id, amount, description, category, transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (transaction_id) DO NOTHING',
+        'INSERT INTO transactions (user_id, transaction_id, amount, description, category, transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (user_id, transaction_id) DO NOTHING',
         [req.userId, tx.id, tx.amount, tx.description || 'Transaction', tx.category || 'Other', tx.date]
       );
       if (r.rowCount > 0) inserted++;
@@ -534,11 +556,13 @@ app.post('/api/demo/load', authenticateToken, async (req, res) => {
   ];
 
   try {
+    let inserted = 0;
     for (const t of T) {
-      await pool.query(
-        'INSERT INTO transactions (user_id,transaction_id,amount,description,category,transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (transaction_id) DO NOTHING',
+      const r = await pool.query(
+        'INSERT INTO transactions (user_id,transaction_id,amount,description,category,transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (user_id, transaction_id) DO NOTHING',
         [req.userId, t.id, t.amount, t.desc, t.cat, t.date]
       );
+      if (r.rowCount > 0) inserted++;
     }
     const countRes = await pool.query('SELECT COUNT(*) as c FROM goals WHERE user_id=$1', [req.userId]);
     if (parseInt(countRes.rows[0].c) === 0) {
@@ -549,7 +573,7 @@ app.post('/api/demo/load', authenticateToken, async (req, res) => {
         );
       }
     }
-    res.json({ success: true });
+    res.json({ success: true, inserted, total: T.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -602,7 +626,22 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
 النص:
 ${rawText.slice(0, 30000)}`;
 
-    const aiText = await groqChat(prompt, 32768);
+    // temperature 0 + enforced JSON schema → same file yields the same
+    // extraction every time (no markdown fences, no truncated arrays)
+    const importSchema = {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          date:        { type: 'STRING' },
+          amount:      { type: 'NUMBER' },
+          description: { type: 'STRING' },
+          category:    { type: 'STRING' }
+        },
+        required: ['date', 'amount', 'description', 'category']
+      }
+    };
+    const aiText = await groqChat(prompt, 32768, { temperature: 0, responseSchema: importSchema });
     console.log('AI raw response length:', aiText.length);
 
     // Strip markdown code fences if present
@@ -647,17 +686,24 @@ ${rawText.slice(0, 30000)}`;
       console.log(`Wiped all transactions for user ${req.userId} before import`);
     }
 
-    const timestamp = Date.now();
-    let inserted = 0;
-    for (const [i, t] of transactions.entries()) {
-      if (!t.date || t.amount === undefined) continue;
-      await pool.query(
-        'INSERT INTO transactions (user_id,transaction_id,amount,description,category,transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (transaction_id) DO NOTHING',
-        [req.userId, `imp-${timestamp}-${i}`, parseFloat(t.amount), t.description || 'معاملة', t.category || 'أخرى', t.date]
+    // Content-derived ids: re-importing the same file skips rows already saved
+    // instead of duplicating them. Identical rows within one file get -1, -2, …
+    const seen = {};
+    let inserted = 0, invalid = 0;
+    for (const t of transactions) {
+      if (!t.date || t.amount === undefined) { invalid++; continue; }
+      const key = crypto.createHash('sha1')
+        .update(`${t.date}|${t.amount}|${(t.description || '').trim()}`)
+        .digest('hex').slice(0, 16);
+      seen[key] = (seen[key] || 0) + 1;
+      const r = await pool.query(
+        'INSERT INTO transactions (user_id,transaction_id,amount,description,category,transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (user_id, transaction_id) DO NOTHING',
+        [req.userId, `imp-${key}-${seen[key]}`, parseFloat(t.amount), t.description || 'معاملة', t.category || 'أخرى', t.date]
       );
-      inserted++;
+      if (r.rowCount > 0) inserted++;
     }
-    res.json({ success: true, total: transactions.length, inserted, transactions: transactions.slice(0,20) });
+    const duplicates = transactions.length - inserted - invalid;
+    res.json({ success: true, total: transactions.length, inserted, duplicates, transactions: transactions.slice(0,20) });
   } catch (err) {
     console.error('Import error:', err.message);
     res.status(500).json({ error: 'Import failed: ' + err.message });

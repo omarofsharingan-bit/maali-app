@@ -542,8 +542,8 @@
     .kpi-val-cat { font-size: 20px; }
     .kpi-unit { font-size: 11px; color: var(--text2); margin-top: 5px; }
 
-    /* Insights stretch across the bottom, tips side by side */
-    .insights-card { grid-column: 1 / -1; }
+    /* Insights sit beside the score card, tips side by side */
+    .insights-card { grid-column: span 2; }
 
     @media (min-width: 641px) {
       .insights-card #insights { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -729,7 +729,7 @@
     .c-out { color: var(--red); }
 
     /* ══ TRANSACTIONS ══ */
-    .tx-card { grid-column: span 2; }
+    .tx-card { grid-column: 1 / -1; }
 
     .tx-row {
       display: flex;
@@ -1355,6 +1355,7 @@
       #dash.active { grid-template-columns: 1fr 1fr; }
       .score-card { grid-row: span 1; }
       .tx-card { grid-column: span 2; }
+      .goals-card { grid-column: span 2; }
       .charts-row { grid-template-columns: 1fr; }
       .exp-stats { grid-template-columns: 1fr 1fr; }
     }
@@ -1391,6 +1392,7 @@
       .import-fab { bottom: 92px; }
       .page { padding: 14px; }
       #dash.active { gap: 12px; }
+      .insights-card, .goals-card { grid-column: span 1; }
       .charts-row { grid-template-columns: 1fr; }
     }
     /* ── IMPORT MODAL ── */
@@ -1793,20 +1795,11 @@
     </div>
 
     <!-- Goals preview -->
-    <div class="card">
+    <div class="card goals-card">
       <div class="card-title">الأهداف المالية</div>
       <div id="dashGoals"><div class="loading"><div class="spinner"></div></div></div>
       <button class="ask-btn" style="margin-top:14px" onclick="goTo('goals-page', null)">
         <i class="ti ti-target" style="color:var(--teal)"></i> عرض كل الأهداف
-      </button>
-    </div>
-
-    <!-- Recent transactions (preview — full list on the expenses page) -->
-    <div class="card tx-card">
-      <div class="card-title">آخر المعاملات</div>
-      <div id="txList"><div class="loading"><div class="spinner"></div></div></div>
-      <button class="ask-btn" style="margin-top:12px" onclick="goTo('expenses', null)">
-        <i class="ti ti-list-details" style="color:var(--teal)"></i> عرض جميع المعاملات والتفاصيل
       </button>
     </div>
 
@@ -1816,6 +1809,15 @@
       <div id="insights"><div class="loading"><div class="spinner"></div></div></div>
       <button class="ask-btn" style="margin-top:12px" onclick="openChat('')">
         <i class="ti ti-sparkles" style="color:var(--teal)"></i> اسأل المساعد المالي
+      </button>
+    </div>
+
+    <!-- Recent transactions — always the last card on the dashboard -->
+    <div class="card tx-card">
+      <div class="card-title">آخر المعاملات</div>
+      <div id="txList"><div class="loading"><div class="spinner"></div></div></div>
+      <button class="ask-btn" style="margin-top:12px" onclick="goTo('expenses', null)">
+        <i class="ti ti-list-details" style="color:var(--teal)"></i> عرض جميع المعاملات والتفاصيل
       </button>
     </div>
 

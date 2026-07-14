@@ -726,3 +726,18 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.listen(PORT, () => {
   console.log(`🚀 Maali running on http://localhost:${PORT}`);
 });
+
+// ── Keepalive: never let the Render free instance sleep ──
+// Render spins down after ~15 min without inbound traffic. Pinging our own
+// public URL every 5 min counts as inbound traffic, so the instance stays
+// awake as long as it's running. The GitHub Actions cron remains as backup:
+// it wakes the instance after deploys/restarts (a sleeping instance can't
+// ping itself).
+const SELF_URL = process.env.SELF_URL || 'https://maali-app.onrender.com';
+if (process.env.RENDER || process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    axios.get(`${SELF_URL}/api/health`, { timeout: 30000 })
+      .then(() => console.log(`[keepalive] self-ping ok ${new Date().toISOString()}`))
+      .catch(err => console.error('[keepalive] self-ping failed:', err.message));
+  }, 5 * 60 * 1000);
+}

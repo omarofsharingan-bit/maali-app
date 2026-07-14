@@ -1,7 +1,7 @@
 name: Keep Render awake
 on:
   schedule:
-    - cron: '*/10 * * * *'   # every 10 minutes
+    - cron: '*/5 * * * *'   # every 5 minutes — GitHub delays cron runs, so keep margin under Render's ~15-min sleep threshold
   workflow_dispatch:
 
 jobs:

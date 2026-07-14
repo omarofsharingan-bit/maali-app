@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>مالي – إدارة مالية ذكية</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
+  <meta name="theme-color" content="#080807" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%231fbb8a'/%3E%3Ctext x='50' y='70' font-size='54' text-anchor='middle' fill='white' font-family='Arial'%3E%D9%85%3C/text%3E%3C/svg%3E" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
   <style>
     /* ══ RESET ══ */
@@ -51,29 +53,118 @@
       --r20: 20px;
 
       --logo-cutout: #080807;
+
+      /* aliases used by the tutorial overlay */
+      --card: var(--bg2);
+      --accent: var(--teal);
+      --text-muted: var(--text2);
+    }
+
+    ::selection { background: var(--teal-g); }
+
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px;
     }
 
     /* ══ AUTH PAGE ══ */
     #authPage {
       position: fixed; inset: 0; z-index: 1000;
       background: var(--bg3); display: flex; align-items: center; justify-content: center;
-      padding: 20px;
+      padding: 24px; overflow: hidden;
     }
     #authPage.hidden { display: none; }
 
-    .auth-box {
-      background: var(--bg2); border: 0.5px solid var(--border2);
-      border-radius: 24px; padding: 40px 36px; width: min(420px, 100%);
-      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    .auth-orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(70px); pointer-events: none;
     }
-    .auth-logo { display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 28px; }
-    .auth-logo-icon {
-      width: 44px; height: 44px; border-radius: 12px;
+    .auth-orb-1 {
+      width: 460px; height: 460px; top: -140px; right: -110px;
+      background: radial-gradient(circle, rgba(31,187,138,0.26), transparent 65%);
+      animation: orbFloat 16s ease-in-out infinite;
+    }
+    .auth-orb-2 {
+      width: 400px; height: 400px; bottom: -130px; left: -90px;
+      background: radial-gradient(circle, rgba(74,158,255,0.16), transparent 65%);
+      animation: orbFloat 20s ease-in-out infinite reverse;
+    }
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0); }
+      50%      { transform: translate(-36px, 28px); }
+    }
+
+    .auth-shell {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: 1.08fr 1fr;
+      width: min(960px, 100%);
+      background: var(--bg);
+      border: 0.5px solid var(--border2);
+      border-radius: 28px; overflow: hidden;
+      box-shadow: 0 40px 120px rgba(0,0,0,0.55), 0 0 0 0.5px var(--border);
+    }
+
+    .auth-hero {
+      padding: 48px 44px 40px;
+      display: flex; flex-direction: column;
+      background:
+        radial-gradient(ellipse 90% 60% at 85% -10%, rgba(31,187,138,0.13), transparent 60%),
+        var(--bg2);
+      border-left: 0.5px solid var(--border);
+    }
+    .auth-hero-logo { display: flex; align-items: center; gap: 12px; }
+    .auth-hero-logo .auth-logo-icon {
+      width: 46px; height: 46px; border-radius: 13px;
+      background: var(--teal-l); border: 0.5px solid rgba(31,187,138,0.25);
+      display: flex; align-items: center; justify-content: center; padding: 7px;
+      box-shadow: 0 0 22px var(--teal-g);
+    }
+    .auth-logo-text { font-size: 25px; font-weight: 800; color: var(--teal); letter-spacing: -0.3px; }
+
+    .auth-hero-title {
+      font-size: 33px; font-weight: 700; line-height: 1.4;
+      margin: 30px 0 12px; letter-spacing: -0.6px;
+    }
+    .auth-hero-title span {
+      background: linear-gradient(120deg, var(--teal), #4affcc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .auth-hero-sub { color: var(--text2); font-size: 14.5px; line-height: 2; margin-bottom: 26px; }
+
+    .auth-feat {
+      display: flex; gap: 14px; align-items: flex-start;
+      padding: 14px 0; border-top: 0.5px solid var(--border);
+    }
+    .auth-feat-icon {
+      width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+      background: var(--teal-l); color: var(--teal);
+      border: 0.5px solid rgba(31,187,138,0.2);
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .auth-feat b { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 3px; }
+    .auth-feat span { font-size: 12.5px; color: var(--text2); line-height: 1.7; }
+
+    .auth-box {
+      padding: 44px 40px;
+      display: flex; flex-direction: column; justify-content: center;
+      background: var(--bg);
+    }
+    .auth-mini-logo { display: none; align-items: center; gap: 10px; justify-content: center; margin-bottom: 22px; }
+    .auth-mini-logo .auth-logo-icon {
+      width: 42px; height: 42px; border-radius: 12px;
       background: var(--teal-l); border: 0.5px solid rgba(31,187,138,0.22);
       display: flex; align-items: center; justify-content: center; padding: 6px;
     }
-    .auth-logo-text { font-size: 26px; font-weight: 800; color: var(--teal); }
-    .auth-subtitle { text-align: center; color: var(--text2); font-size: 14px; margin-bottom: 28px; }
+    .auth-heading { font-size: 23px; font-weight: 800; margin-bottom: 6px; }
+    .auth-subtitle { color: var(--text2); font-size: 13.5px; margin-bottom: 26px; line-height: 1.8; }
+
+    @media (max-width: 880px) {
+      .auth-shell { grid-template-columns: 1fr; width: min(440px, 100%); }
+      .auth-hero { display: none; }
+      .auth-mini-logo { display: flex; }
+      .auth-box { padding: 36px 30px; }
+      .auth-heading, .auth-subtitle { text-align: center; }
+    }
 
     .auth-tabs { display: flex; background: var(--bg); border-radius: 12px; padding: 4px; margin-bottom: 24px; gap: 4px; }
     .auth-tab {
@@ -219,11 +310,16 @@
     /* ══ BASE ══ */
     html { scroll-behavior: smooth; }
     body {
-      font-family: 'Tajawal', sans-serif;
+      font-family: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
       background: var(--bg3);
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
+    }
+
+    .metric-val, .stat-val, .goal-current, .tx-amount,
+    .score-num, .cat-breakdown-amt, .cat-list-amt {
+      font-variant-numeric: tabular-nums;
     }
 
     /* Ambient background glows */
@@ -341,7 +437,7 @@
 
     .nav-btn.active {
       background: var(--bg);
-      color: var(--text);
+      color: var(--teal);
       font-weight: 700;
       box-shadow: 0 2px 10px rgba(0,0,0,0.5);
       border: 0.5px solid var(--border2);
@@ -396,8 +492,9 @@
     }
 
     .card:hover {
-      border-color: var(--border3);
+      border-color: rgba(31,187,138,0.22);
       box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+      transform: translateY(-1px);
     }
 
     .card-title {
@@ -1208,11 +1305,36 @@
       .exp-stats { grid-template-columns: 1fr 1fr; }
     }
 
+    /* ══ MOBILE BOTTOM NAV ══ */
+    .bnav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+      background: rgba(8,8,7,0.88);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-top: 0.5px solid var(--border2);
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+      justify-content: space-around; gap: 4px;
+    }
+    .bnav-btn {
+      flex: 1; max-width: 130px;
+      background: none; border: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      color: var(--text2); font-family: inherit; font-size: 10.5px; font-weight: 600;
+      padding: 6px 4px; border-radius: 12px; transition: color 0.2s;
+    }
+    .bnav-btn i { font-size: 21px; }
+    .bnav-btn.active { color: var(--teal); }
+    .bnav-btn.active i { filter: drop-shadow(0 0 8px var(--teal-g)); }
+    [data-theme="light"] .bnav { background: rgba(242,240,232,0.92); }
+
     @media (max-width: 640px) {
       #dash.active { grid-template-columns: 1fr; }
       .tx-card { grid-column: span 1; }
       .exp-stats { grid-template-columns: 1fr; }
       .nav { display: none; }
+      .bnav { display: flex; }
+      body { padding-bottom: 78px; }
+      .import-fab { bottom: 92px; }
       .page { padding: 14px; }
       #dash.active { gap: 12px; }
       .charts-row { grid-template-columns: 1fr; }
@@ -1382,8 +1504,45 @@
 
   <!-- ══ AUTH PAGE ══ -->
   <div id="authPage">
-    <div class="auth-box">
-      <div class="auth-logo">
+    <div class="auth-orb auth-orb-1"></div>
+    <div class="auth-orb auth-orb-2"></div>
+    <div class="auth-shell">
+
+      <!-- Brand hero (hidden on small screens) -->
+      <div class="auth-hero">
+        <div class="auth-hero-logo">
+          <div class="auth-logo-icon">
+            <svg viewBox="0 0 100 118" fill="currentColor" style="width:100%;height:100%;color:var(--teal)" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22,10 L22,58 A28,28 0 0,1 78,58 L78,10" stroke="currentColor" stroke-width="16" fill="none" stroke-linecap="round"/>
+              <circle cx="22" cy="10" r="9"/><circle cx="78" cy="10" r="9"/>
+              <rect x="44" y="79" width="12" height="14"/><circle cx="50" cy="104" r="13"/>
+              <circle cx="40" cy="42" r="10"/><circle cx="40" cy="42" r="5.5" fill="var(--logo-cutout,#080807)"/>
+              <rect x="51" y="60" width="5" height="11" rx="1"/><rect x="58" y="49" width="5" height="22" rx="1"/><rect x="65" y="38" width="5" height="33" rx="1"/>
+            </svg>
+          </div>
+          <span class="auth-logo-text">مالي</span>
+        </div>
+
+        <h1 class="auth-hero-title">افهم أموالك.<br><span>حقّق أهدافك.</span></h1>
+        <p class="auth-hero-sub">مساعدك المالي الذكي — يحلّل معاملاتك، يجيب على أسئلتك، ويتابع أهدافك خطوة بخطوة.</p>
+
+        <div class="auth-feat">
+          <div class="auth-feat-icon"><i class="ti ti-sparkles"></i></div>
+          <div><b>تحليل ذكي لأموالك</b><span>رؤى فورية عن دخلك ومصاريفك مدعومة بالذكاء الاصطناعي</span></div>
+        </div>
+        <div class="auth-feat">
+          <div class="auth-feat-icon"><i class="ti ti-file-upload"></i></div>
+          <div><b>استيراد كشف الحساب</b><span>ارفع PDF أو CSV من أي بنك وشاهد معاملاتك خلال ثوانٍ</span></div>
+        </div>
+        <div class="auth-feat">
+          <div class="auth-feat-icon"><i class="ti ti-target-arrow"></i></div>
+          <div><b>أهداف واضحة</b><span>خطّط للسيارة أو البيت أو صندوق الطوارئ وتابع تقدّمك</span></div>
+        </div>
+      </div>
+
+      <!-- Form side -->
+      <div class="auth-box">
+      <div class="auth-mini-logo">
         <div class="auth-logo-icon">
           <svg viewBox="0 0 100 118" fill="currentColor" style="width:100%;height:100%;color:var(--teal)" xmlns="http://www.w3.org/2000/svg">
             <path d="M22,10 L22,58 A28,28 0 0,1 78,58 L78,10" stroke="currentColor" stroke-width="16" fill="none" stroke-linecap="round"/>
@@ -1395,7 +1554,8 @@
         </div>
         <span class="auth-logo-text">مالي</span>
       </div>
-      <p class="auth-subtitle">إدارة مالية ذكية بالذكاء الاصطناعي</p>
+      <h2 class="auth-heading">أهلاً بك 👋</h2>
+      <p class="auth-subtitle">سجّل دخولك أو أنشئ حساباً جديداً لتبدأ</p>
 
       <div class="auth-tabs">
         <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">تسجيل الدخول</button>
@@ -1431,7 +1591,9 @@
         </div>
         <button class="auth-btn" id="signupBtn" onclick="doSignup()">إنشاء حساب</button>
       </div>
-    </div>
+      </div><!-- /auth-box -->
+
+    </div><!-- /auth-shell -->
   </div>
 
   <!-- ══ HEADER ══ -->
@@ -1467,9 +1629,9 @@
       <span class="logo-text">مالي</span>
     </div>
     <nav class="nav">
-      <button class="nav-btn active" onclick="goTo('dash',this)">لوحة التحكم</button>
-      <button class="nav-btn" onclick="goTo('expenses',this)">المصروفات</button>
-      <button class="nav-btn" onclick="goTo('goals-page',this)">الأهداف</button>
+      <button class="nav-btn active" data-page="dash" onclick="goTo('dash',this)">لوحة التحكم</button>
+      <button class="nav-btn" data-page="expenses" onclick="goTo('expenses',this)">المصروفات</button>
+      <button class="nav-btn" data-page="goals-page" onclick="goTo('goals-page',this)">الأهداف</button>
     </nav>
     <div class="header-right">
       <span id="headerUsername" style="font-size:13px;color:var(--text2);font-weight:500;padding:0 4px"></span>
@@ -1482,6 +1644,19 @@
       <button class="icon-btn" title="تسجيل الخروج" onclick="doLogout()" style="color:var(--red)"><i class="ti ti-logout"></i></button>
     </div>
   </header>
+
+  <!-- ══ MOBILE BOTTOM NAV ══ -->
+  <nav class="bnav" id="bottomNav">
+    <button class="bnav-btn active" data-page="dash" onclick="goTo('dash',null)">
+      <i class="ti ti-layout-dashboard"></i><span>الرئيسية</span>
+    </button>
+    <button class="bnav-btn" data-page="expenses" onclick="goTo('expenses',null)">
+      <i class="ti ti-chart-pie"></i><span>المصروفات</span>
+    </button>
+    <button class="bnav-btn" data-page="goals-page" onclick="goTo('goals-page',null)">
+      <i class="ti ti-target"></i><span>الأهداف</span>
+    </button>
+  </nav>
 
   <!-- ══ DASHBOARD ══ -->
   <div id="dash" class="page active">
@@ -1810,9 +1985,10 @@
     /* ── NAVIGATION ── */
     function goTo(id, btn) {
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById(id).classList.add('active');
-      if (btn) btn.classList.add('active');
+      // keep top nav and mobile bottom nav in sync
+      document.querySelectorAll('.nav-btn, .bnav-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.page === id));
       if (id === 'expenses')   renderExpenses();
       if (id === 'goals-page') loadGoals();
     }
@@ -1831,8 +2007,16 @@
       requestAnimationFrame(update);
     }
 
+    /* ── THEME-AWARE CHART COLORS ── */
+    function cssVar(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    const CHART_FONT = "'IBM Plex Sans Arabic', 'Tajawal', sans-serif";
+    let lastScore = null;
+
     /* ── SCORE CHART ── */
     function renderScore(score) {
+      lastScore = score;
       const canvas = document.getElementById('scoreChart');
       const ctx = canvas.getContext('2d');
       if (scoreChartInst) scoreChartInst.destroy();
@@ -1846,7 +2030,7 @@
         data: {
           datasets: [{
             data: [score, 100 - score],
-            backgroundColor: [grad, '#1e1e1c'],
+            backgroundColor: [grad, cssVar('--bg2a') || '#1e1e1c'],
             borderWidth: 0,
             circumference: 270,
             rotation: -135
@@ -2056,8 +2240,8 @@
           datasets: [{
             label: 'المصروفات',
             data: trendData,
-            backgroundColor: trendMonths.map(m => m === selectedMonth ? '#1fbb8a' : '#252523'),
-            hoverBackgroundColor: trendMonths.map(m => m === selectedMonth ? '#1fbb8a' : '#2e2e2b'),
+            backgroundColor: trendMonths.map(m => m === selectedMonth ? (cssVar('--teal') || '#1fbb8a') : (cssVar('--bg2a') || '#252523')),
+            hoverBackgroundColor: trendMonths.map(m => m === selectedMonth ? (cssVar('--teal') || '#1fbb8a') : (cssVar('--border3') || '#2e2e2b')),
             borderRadius: 10,
             borderWidth: 0,
             borderSkipped: false
@@ -2073,11 +2257,11 @@
           scales: {
             x: {
               grid: { display: false },
-              ticks: { color: '#888680', font: { family: 'Tajawal', size: 13 } }
+              ticks: { color: cssVar('--text2') || '#888680', font: { family: CHART_FONT, size: 13 } }
             },
             y: {
-              grid: { color: 'rgba(255,255,255,0.04)' },
-              ticks: { color: '#888680', font: { family: 'Tajawal' } }
+              grid: { color: cssVar('--border') || 'rgba(255,255,255,0.04)' },
+              ticks: { color: cssVar('--text2') || '#888680', font: { family: CHART_FONT } }
             }
           }
         }
@@ -2374,6 +2558,9 @@
         document.getElementById('themeIcon').className = 'ti ti-moon';
         localStorage.setItem('maali-theme', 'light');
       }
+      // redraw canvas charts with the new theme's colors
+      if (typeof lastScore === 'number') renderScore(lastScore);
+      if (document.getElementById('expenses').classList.contains('active') && allTx.length) renderExpenses();
     }
 
     /* Apply saved theme immediately */

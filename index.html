@@ -527,7 +527,7 @@
     }
     .kpi-details-btn:hover { background: var(--teal); color: #fff; box-shadow: 0 6px 20px var(--teal-g); }
 
-    .kpi-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px; }
+    .kpi-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr; gap: 12px; }
     .kpi {
       background: var(--bg2); border: 0.5px solid var(--border);
       border-radius: var(--r12); padding: 16px 18px;
@@ -551,6 +551,7 @@
     }
     @media (max-width: 1024px) {
       .kpi-grid { grid-template-columns: 1fr 1fr; }
+      .kpi-main { grid-column: span 2; }
     }
     @media (max-width: 640px) {
       .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1745,6 +1746,11 @@
           <div class="kpi-unit">ر.س</div>
         </div>
         <div class="kpi">
+          <div class="kpi-lbl">متوسط الإنفاق اليومي</div>
+          <div class="kpi-val" style="color:var(--blue)" id="kpiDailyAvg">--</div>
+          <div class="kpi-unit">ر.س / يوم</div>
+        </div>
+        <div class="kpi">
           <div class="kpi-lbl">أكبر فئة إنفاق</div>
           <div class="kpi-val kpi-val-cat" style="color:var(--amber)" id="kpiTopCat">--</div>
           <div class="kpi-unit">هذا الشهر</div>
@@ -2110,6 +2116,7 @@
       if (!allTx.length) {
         monthEl.textContent = 'الشهر';
         topCatEl.textContent = '--';
+        document.getElementById('kpiDailyAvg').textContent = '--';
         catsEl.innerHTML = '<p class="empty-state">لا توجد بيانات بعد</p>';
         return;
       }
@@ -2125,6 +2132,14 @@
       topCatEl.textContent = sorted[0] ? sorted[0][0] : '--';
 
       const totExp = sorted.reduce((s, [, v]) => s + v, 0);
+
+      // daily spending average: elapsed days for the ongoing month, full month otherwise
+      const now = new Date();
+      const isCurrentMonth = latest === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const days = isCurrentMonth ? now.getDate() : new Date(parseInt(y), parseInt(m), 0).getDate();
+      document.getElementById('kpiDailyAvg').textContent =
+        totExp > 0 ? Math.round(totExp / days).toLocaleString('ar-SA') : '--';
+
       catsEl.innerHTML = sorted.length
         ? sorted.slice(0, 3).map(([k, v]) => {
             const pct   = Math.round(v / totExp * 100);

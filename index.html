@@ -506,6 +506,60 @@
       letter-spacing: 1px;
     }
 
+    /* ══ KPI HERO (main-screen headline numbers) ══ */
+    .kpi-hero {
+      grid-column: 1 / -1;
+      background:
+        radial-gradient(ellipse 60% 120% at 90% -20%, rgba(31,187,138,0.08), transparent 60%),
+        var(--bg);
+    }
+    .kpi-head {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
+    }
+    .kpi-sub { font-size: 12.5px; color: var(--text2); }
+    .kpi-details-btn {
+      padding: 10px 20px; border-radius: var(--r12);
+      border: 0.5px solid rgba(31,187,138,0.3);
+      background: var(--teal-l); color: var(--teal);
+      font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; gap: 7px; transition: all 0.2s;
+    }
+    .kpi-details-btn:hover { background: var(--teal); color: #fff; box-shadow: 0 6px 20px var(--teal-g); }
+
+    .kpi-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px; }
+    .kpi {
+      background: var(--bg2); border: 0.5px solid var(--border);
+      border-radius: var(--r12); padding: 16px 18px;
+    }
+    .kpi-main {
+      background: linear-gradient(145deg, var(--teal-l), transparent 70%), var(--bg2);
+      border-color: rgba(31,187,138,0.25);
+    }
+    .kpi-lbl { font-size: 11.5px; color: var(--text2); font-weight: 600; margin-bottom: 7px; }
+    .kpi-val { font-size: 28px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .kpi-main .kpi-val { font-size: 34px; }
+    .kpi-val-cat { font-size: 20px; }
+    .kpi-unit { font-size: 11px; color: var(--text2); margin-top: 5px; }
+
+    /* Insights stretch across the bottom, tips side by side */
+    .insights-card { grid-column: 1 / -1; }
+
+    @media (min-width: 641px) {
+      .insights-card #insights { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .insights-card .insight { margin-bottom: 0; }
+    }
+    @media (max-width: 1024px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .kpi { padding: 13px 14px; }
+      .kpi-val { font-size: 22px; }
+      .kpi-main .kpi-val { font-size: 26px; }
+      .kpi-val-cat { font-size: 17px; }
+    }
+
     /* ══ SCORE CARD ══ */
     .score-card {
       grid-row: span 2;
@@ -1661,6 +1715,41 @@
   <!-- ══ DASHBOARD ══ -->
   <div id="dash" class="page active">
 
+    <!-- KPI hero: the important numbers, front and center -->
+    <div class="card kpi-hero">
+      <div class="kpi-head">
+        <div>
+          <div class="card-title" style="margin-bottom:4px">ملخص <span id="kpiMonth"></span></div>
+          <div class="kpi-sub">أهم أرقامك المالية في لمحة واحدة</div>
+        </div>
+        <button class="kpi-details-btn" onclick="goTo('expenses', null)">
+          <i class="ti ti-chart-pie"></i> تفاصيل المصروفات
+        </button>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi kpi-main">
+          <div class="kpi-lbl">صافي المدخرات</div>
+          <div class="kpi-val c-in" id="mSav">--</div>
+          <div class="kpi-unit">ر.س هذا الشهر</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">الدخل</div>
+          <div class="kpi-val c-in" id="mIncome">--</div>
+          <div class="kpi-unit">ر.س</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">المصروفات</div>
+          <div class="kpi-val c-out" id="mExp">--</div>
+          <div class="kpi-unit">ر.س</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-lbl">أكبر فئة إنفاق</div>
+          <div class="kpi-val kpi-val-cat" style="color:var(--amber)" id="kpiTopCat">--</div>
+          <div class="kpi-unit">هذا الشهر</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Score card -->
     <div class="card score-card">
       <div class="ai-badge"><i class="ti ti-sparkles" style="font-size:10px"></i> تحليل ذكي</div>
@@ -1694,46 +1783,39 @@
       </button>
     </div>
 
-    <!-- Summary -->
+    <!-- Top spending categories (compact — details live on the expenses page) -->
     <div class="card">
-      <div class="card-title">الملخص الشهري</div>
-      <div class="metrics-row">
-        <div class="metric-box">
-          <div class="metric-val c-in" id="mIncome">--</div>
-          <div class="metric-lbl">الدخل ر.س</div>
-        </div>
-        <div class="metric-box">
-          <div class="metric-val c-out" id="mExp">--</div>
-          <div class="metric-lbl">المصروفات ر.س</div>
-        </div>
-      </div>
-      <div class="metric-full">
-        <div class="metric-val c-in" id="mSav">--</div>
-        <div class="metric-lbl">صافي المدخرات ر.س</div>
-      </div>
-    </div>
-
-    <!-- Insights -->
-    <div class="card">
-      <div class="card-title">توصيات ذكية</div>
-      <div id="insights"><div class="loading"><div class="spinner"></div></div></div>
-      <button class="ask-btn" onclick="openChat('')">
-        <i class="ti ti-sparkles" style="color:var(--teal)"></i> اسأل المساعد المالي
+      <div class="card-title">أهم فئات الإنفاق</div>
+      <div id="topCats"><div class="loading"><div class="spinner"></div></div></div>
+      <button class="ask-btn" style="margin-top:14px" onclick="goTo('expenses', null)">
+        <i class="ti ti-chart-pie" style="color:var(--teal)"></i> كل التفاصيل والرسوم البيانية
       </button>
-    </div>
-
-    <!-- Transactions -->
-    <div class="card tx-card">
-      <div class="card-title">آخر المعاملات</div>
-      <div id="txList"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <!-- Goals preview -->
     <div class="card">
       <div class="card-title">الأهداف المالية</div>
       <div id="dashGoals"><div class="loading"><div class="spinner"></div></div></div>
-      <button class="ask-btn" style="margin-top:14px" onclick="goTo('goals-page', document.querySelectorAll('.nav-btn')[2])">
+      <button class="ask-btn" style="margin-top:14px" onclick="goTo('goals-page', null)">
         <i class="ti ti-target" style="color:var(--teal)"></i> عرض كل الأهداف
+      </button>
+    </div>
+
+    <!-- Recent transactions (preview — full list on the expenses page) -->
+    <div class="card tx-card">
+      <div class="card-title">آخر المعاملات</div>
+      <div id="txList"><div class="loading"><div class="spinner"></div></div></div>
+      <button class="ask-btn" style="margin-top:12px" onclick="goTo('expenses', null)">
+        <i class="ti ti-list-details" style="color:var(--teal)"></i> عرض جميع المعاملات والتفاصيل
+      </button>
+    </div>
+
+    <!-- Insights -->
+    <div class="card insights-card">
+      <div class="card-title">توصيات ذكية</div>
+      <div id="insights"><div class="loading"><div class="spinner"></div></div></div>
+      <button class="ask-btn" style="margin-top:12px" onclick="openChat('')">
+        <i class="ti ti-sparkles" style="color:var(--teal)"></i> اسأل المساعد المالي
       </button>
     </div>
 
@@ -1775,6 +1857,10 @@
       <div class="cat-breakdown">
         <div class="card-title">تفاصيل الإنفاق بالفئة</div>
         <div id="catBreakdown"></div>
+      </div>
+      <div class="cat-breakdown" style="margin-top:16px">
+        <div class="card-title">جميع معاملات الشهر</div>
+        <div id="allTxList"></div>
       </div>
     </div>
   </div>
@@ -1993,6 +2079,65 @@
       if (id === 'goals-page') loadGoals();
     }
 
+    /* ── SHARED TRANSACTION ROW ── */
+    function txRowHTML(tx) {
+      const isIn = tx.amount > 0;
+      const clr  = isIn ? 'var(--teal)' : 'var(--red)';
+      const bg   = isIn ? 'var(--teal-l)' : 'var(--red-l)';
+      return `<div class="tx-row">
+        <div class="tx-left">
+          <div class="tx-icon" style="background:${bg};color:${clr}">
+            <i class="ti ${isIn ? 'ti-arrow-down-circle' : 'ti-arrow-up-circle'}"></i>
+          </div>
+          <div>
+            <div class="tx-name">${tx.description}
+              <span class="tag" style="background:${bg};color:${clr}">${tx.category}</span>
+            </div>
+            <div class="tx-date">${new Date(tx.transaction_date).toLocaleDateString('ar-SA')}</div>
+          </div>
+        </div>
+        <div class="tx-amount ${isIn ? 'c-in' : 'c-out'}">${isIn ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('ar-SA')} ر.س</div>
+      </div>`;
+    }
+
+    /* ── KPI HERO: month label, top category, top-categories card ── */
+    function renderHeroExtras() {
+      const monthEl  = document.getElementById('kpiMonth');
+      const topCatEl = document.getElementById('kpiTopCat');
+      const catsEl   = document.getElementById('topCats');
+      if (!allTx.length) {
+        monthEl.textContent = 'الشهر';
+        topCatEl.textContent = '--';
+        catsEl.innerHTML = '<p class="empty-state">لا توجد بيانات بعد</p>';
+        return;
+      }
+      // month of the most recent transaction — same month /api/summary reports
+      const latest = allTx.map(t => String(t.transaction_date).slice(0, 7)).sort().pop();
+      const [y, m] = latest.split('-');
+      monthEl.textContent = MONTHS_AR[parseInt(m) - 1] + ' ' + y;
+
+      const cats = {};
+      allTx.filter(t => String(t.transaction_date).startsWith(latest) && t.amount < 0)
+           .forEach(t => { const c = t.category || 'أخرى'; cats[c] = (cats[c] || 0) + Math.abs(t.amount); });
+      const sorted = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+      topCatEl.textContent = sorted[0] ? sorted[0][0] : '--';
+
+      const totExp = sorted.reduce((s, [, v]) => s + v, 0);
+      catsEl.innerHTML = sorted.length
+        ? sorted.slice(0, 3).map(([k, v]) => {
+            const pct   = Math.round(v / totExp * 100);
+            const color = CAT_COLORS[k] || '#6B7280';
+            return `<div class="cat-row">
+              <div class="cat-icon" style="background:${color}1a">${catIcon(k)}</div>
+              <div class="cat-info">
+                <div class="cat-top"><span>${k}</span><span style="color:${color};font-weight:700">${v.toLocaleString('ar-SA')} ر.س</span></div>
+                <div class="bar-track"><div class="bar-fill" style="background:linear-gradient(90deg,${color},${color}88);width:${pct}%"></div></div>
+              </div>
+            </div>`;
+          }).join('')
+        : '<p class="empty-state">لا توجد مصروفات هذا الشهر</p>';
+    }
+
     /* ── COUNT-UP ANIMATION ── */
     function animateNum(el, target) {
       const duration = 900;
@@ -2083,29 +2228,10 @@
         const d = await r.json();
         allTx = d.transactions || [];
         const list = document.getElementById('txList');
-        if (!allTx.length) {
-          list.innerHTML = '<p class="empty-state">لا توجد معاملات بعد.</p>';
-        } else {
-          list.innerHTML = allTx.slice(0, 7).map(tx => {
-            const isIn = tx.amount > 0;
-            const clr  = isIn ? 'var(--teal)' : 'var(--red)';
-            const bg   = isIn ? 'var(--teal-l)' : 'var(--red-l)';
-            return `<div class="tx-row">
-              <div class="tx-left">
-                <div class="tx-icon" style="background:${bg};color:${clr}">
-                  <i class="ti ${isIn ? 'ti-arrow-down-circle' : 'ti-arrow-up-circle'}"></i>
-                </div>
-                <div>
-                  <div class="tx-name">${tx.description}
-                    <span class="tag" style="background:${bg};color:${clr}">${tx.category}</span>
-                  </div>
-                  <div class="tx-date">${new Date(tx.transaction_date).toLocaleDateString('ar-SA')}</div>
-                </div>
-              </div>
-              <div class="tx-amount ${isIn ? 'c-in' : 'c-out'}">${isIn ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('ar-SA')} ر.س</div>
-            </div>`;
-          }).join('');
-        }
+        list.innerHTML = allTx.length
+          ? allTx.slice(0, 5).map(txRowHTML).join('')
+          : '<p class="empty-state">لا توجد معاملات بعد.</p>';
+        renderHeroExtras();
       } catch(e) {
         document.getElementById('txList').innerHTML = '<p class="empty-state">تعذّر تحميل المعاملات</p>';
       }
@@ -2266,6 +2392,14 @@
           }
         }
       });
+
+      /* All transactions of the selected month (income + expenses) */
+      const monthAll = allTx
+        .filter(tx => String(tx.transaction_date).startsWith(selectedMonth))
+        .sort((a, b) => String(b.transaction_date).localeCompare(String(a.transaction_date)));
+      document.getElementById('allTxList').innerHTML = monthAll.length
+        ? monthAll.map(txRowHTML).join('')
+        : '<p class="empty-state">لا توجد معاملات في هذا الشهر</p>';
 
       /* Breakdown list */
       document.getElementById('catBreakdown').innerHTML = sorted.map(([k, v]) => {

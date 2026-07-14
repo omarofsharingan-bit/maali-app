@@ -633,8 +633,9 @@
 
     .score-grade {
       display: inline-block; margin-top: 6px;
-      font-size: 12.5px; font-weight: 800; letter-spacing: 0.5px;
-      padding: 2px 12px; border-radius: 20px; direction: ltr;
+      font-size: 11.5px; font-weight: 800; letter-spacing: 0.3px;
+      padding: 2px 10px; border-radius: 20px; direction: ltr;
+      white-space: nowrap;
       background: var(--teal-l); color: var(--teal);
       border: 0.5px solid rgba(31,187,138,0.3);
     }
@@ -2219,18 +2220,18 @@
       else if (score >= 50) document.getElementById('scoreTitle').textContent = 'وضعك المالي جيد 👍';
       else                  document.getElementById('scoreTitle').textContent = 'يمكن تحسين وضعك 💪';
 
-      // letter grade for the 0–100 score
-      const [grade, gColor] =
-          score >= 90 ? ['A+', '#1fbb8a']
-        : score >= 80 ? ['A',  '#1fbb8a']
-        : score >= 70 ? ['B+', '#4a9eff']
-        : score >= 60 ? ['B',  '#4a9eff']
-        : score >= 50 ? ['C+', '#f5a623']
-        : score >= 40 ? ['C',  '#f5a623']
-        : score >= 25 ? ['D',  '#ff5c5c']
-        :               ['F',  '#ff5c5c'];
+      // letter grade + Arabic label for the 0–100 score
+      const [grade, gColor, gLabel] =
+          score >= 90 ? ['A+', '#1fbb8a', 'ممتاز']
+        : score >= 80 ? ['A',  '#1fbb8a', 'ممتاز']
+        : score >= 70 ? ['B+', '#4a9eff', 'جيد جداً']
+        : score >= 60 ? ['B',  '#4a9eff', 'جيد']
+        : score >= 50 ? ['C+', '#f5a623', 'مقبول']
+        : score >= 40 ? ['C',  '#f5a623', 'مقبول']
+        : score >= 25 ? ['D',  '#ff5c5c', 'ضعيف']
+        :               ['F',  '#ff5c5c', 'ضعيف'];
       const gEl = document.getElementById('scoreGrade');
-      gEl.textContent = grade;
+      gEl.textContent = `${grade} · ${gLabel}`;
       gEl.style.background  = gColor + '1f';
       gEl.style.color       = gColor;
       gEl.style.borderColor = gColor + '4d';

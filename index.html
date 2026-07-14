@@ -1810,12 +1810,12 @@
       </button>
     </div>
 
-    <!-- Goals preview -->
+    <!-- AI improvement suggestions (personalized, from real data) -->
     <div class="card goals-card">
-      <div class="card-title">الأهداف المالية</div>
-      <div id="dashGoals"><div class="loading"><div class="spinner"></div></div></div>
-      <button class="ask-btn" style="margin-top:14px" onclick="goTo('goals-page', null)">
-        <i class="ti ti-target" style="color:var(--teal)"></i> عرض كل الأهداف
+      <div class="card-title">✨ اقتراحات الذكاء الاصطناعي</div>
+      <div id="aiTips"><div class="loading"><div class="spinner"></div></div></div>
+      <button class="ask-btn" style="margin-top:14px" onclick="loadAiTips(true)">
+        <i class="ti ti-refresh" style="color:var(--teal)"></i> اقتراحات جديدة
       </button>
     </div>
 
@@ -2296,28 +2296,50 @@
           </div>
         </div>`;
 
-      /* Dashboard goals preview */
+      /* AI improvement suggestions (uses cached result unless data changed) */
+      loadAiTips();
+    }
+
+    /* ── AI IMPROVEMENT SUGGESTIONS ── */
+    async function loadAiTips(force = false) {
+      const el = document.getElementById('aiTips');
+      if (!allTx.length) {
+        el.innerHTML = '<p class="empty-state">أضف معاملاتك أولاً ليحللها الذكاء الاصطناعي</p>';
+        return;
+      }
+      const cacheKey = 'maali-ai-tips-' + allTx.length;
+      if (!force) {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) { renderAiTips(cached); return; }
+      }
+      el.innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:11px;margin-top:6px;color:var(--text2)">يحلل الذكاء الاصطناعي بياناتك...</div></div>';
       try {
-        const r = await apiFetch(`${API}/goals`);
-        const d = await r.json();
-        const goals = d.goals || [];
-        const el = document.getElementById('dashGoals');
-        if (!goals.length) { el.innerHTML = '<p class="empty-state">لا توجد أهداف بعد</p>'; return; }
-        el.innerHTML = goals.slice(0, 3).map(g => {
-          const pct   = Math.min(Math.round(g.current_amount / g.target_amount * 100), 100);
-          const color = pct >= 100 ? '#22C55E' : pct >= 50 ? 'var(--teal)' : 'var(--amber)';
-          const hex   = pct >= 100 ? '#22C55E' : pct >= 50 ? '#1fbb8a' : '#f5a623';
-          return `<div style="margin-bottom:14px">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
-              <span style="font-weight:700">${goalEmoji(g.name)} ${g.name}</span>
-              <span style="color:${color};font-weight:800">${pct}%</span>
-            </div>
-            <div class="bar-track">
-              <div class="bar-fill" style="background:linear-gradient(90deg,${hex},${hex}99);width:${pct}%"></div>
-            </div>
-          </div>`;
-        }).join('');
-      } catch(e) {}
+        const r = await apiFetch(`${API}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'حلل بياناتي المالية وأعطني 3 اقتراحات قصيرة ومحددة لتحسين وضعي المالي بناءً على أرقامي الفعلية (اذكر الأرقام). أجب بـ3 أسطر فقط، كل سطر اقتراح واحد يبدأ بـ"-"، بدون أي مقدمة أو خاتمة.' })
+        });
+        if (!r.ok) throw new Error('server');
+        const text = await r.text();
+        if (!text.trim()) throw new Error('empty');
+        sessionStorage.setItem(cacheKey, text);
+        renderAiTips(text);
+      } catch (e) {
+        el.innerHTML = '<p class="empty-state">تعذّر تحميل الاقتراحات — حاول لاحقاً</p>';
+      }
+    }
+
+    function renderAiTips(text) {
+      const tips = text.split('\n')
+        .map(s => s.replace(/^[-•*\d.\s]+/, '').replace(/\*\*/g, '').trim())
+        .filter(s => s.length > 4)
+        .slice(0, 3);
+      const icons = ['ti-bulb', 'ti-trending-up', 'ti-target'];
+      document.getElementById('aiTips').innerHTML = tips.map((t, i) => `
+        <div class="insight green" style="margin-bottom:8px">
+          <div class="insight-icon" style="background:var(--teal-l);color:var(--teal)"><i class="ti ${icons[i % 3]}"></i></div>
+          <div><div class="insight-body" style="color:var(--text)">${t.replace(/</g, '&lt;')}</div></div>
+        </div>`).join('');
     }
 
     /* ── EXPENSES TAB ── */

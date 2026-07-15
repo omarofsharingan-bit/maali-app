@@ -134,6 +134,46 @@ async function initDB() {
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  await pool.query(`CREATE TABLE IF NOT EXISTS gamification (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    points INTEGER DEFAULT 0,
+    quiz_correct INTEGER DEFAULT 0,
+    quiz_total INTEGER DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS user_badges (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    badge_id TEXT NOT NULL,
+    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, badge_id)
+  )`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS challenges (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    baseline_amount REAL DEFAULT 0,
+    reward_points INTEGER DEFAULT 50,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS budgets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    category TEXT NOT NULL,
+    monthly_limit REAL NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, category)
+  )`);
+
   console.log('✅ PostgreSQL tables ready');
 }
 
@@ -343,6 +383,494 @@ app.patch('/api/goals/:id', authenticateToken, async (req, res) => {
 app.delete('/api/goals/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM goals WHERE id=$1 AND user_id=$2', [req.params.id, req.userId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ── Gamification: points, levels, badges ──────────────────
+const LEVELS = [
+  { min: 0,    title: 'مبتدئ',       emoji: '🌱' },
+  { min: 100,  title: 'مدخر ناشئ',   emoji: '🪙' },
+  { min: 250,  title: 'مخطط ذكي',    emoji: '📊' },
+  { min: 500,  title: 'محترف مالي',  emoji: '💎' },
+  { min: 1000, title: 'خبير الثروة', emoji: '👑' },
+];
+
+const BADGES = [
+  { id: 'first_steps',    name: 'البداية',         emoji: '🚀', desc: 'أضفت أول معاملة',                     test: s => s.txCount >= 1 },
+  { id: 'data_master',    name: 'محلل البيانات',   emoji: '📈', desc: '50 معاملة مسجلة أو أكثر',             test: s => s.txCount >= 50 },
+  { id: 'bank_link',      name: 'مصرفية مفتوحة',   emoji: '🏦', desc: 'ربطت حسابك البنكي',                   test: s => s.bankConnected },
+  { id: 'goal_setter',    name: 'صاحب طموح',       emoji: '🎯', desc: 'أنشأت هدفاً مالياً',                  test: s => s.goalCount >= 1 },
+  { id: 'goal_crusher',   name: 'محقق الأهداف',    emoji: '🏆', desc: 'حققت هدفاً مالياً كاملاً',            test: s => s.goalsAchieved >= 1 },
+  { id: 'saver',          name: 'مدخر',            emoji: '💰', desc: 'صافي مدخراتك موجب',                   test: s => s.netSavings > 0 },
+  { id: 'super_saver',    name: 'مدخر محترف',      emoji: '🌟', desc: 'نسبة ادخار 20% أو أكثر',              test: s => s.income > 0 && (s.netSavings / s.income) >= 0.2 },
+  { id: 'challenger',     name: 'المتحدي',         emoji: '⚔️', desc: 'أكملت تحدي ادخار',                    test: s => s.challengesDone >= 1 },
+  { id: 'quiz_starter',   name: 'طالب المعرفة',    emoji: '🧠', desc: 'خضت اختبار الوعي المالي',             test: s => s.quizTotal >= 1 },
+  { id: 'quiz_genius',    name: 'عبقري مالي',      emoji: '🎓', desc: '10 إجابات صحيحة في الاختبارات',       test: s => s.quizCorrect >= 10 },
+  { id: 'budget_planner', name: 'منظم الميزانية',  emoji: '🗂️', desc: 'وضعت ميزانية شهرية',                  test: s => s.budgetCount >= 1 },
+];
+
+const NEW_BADGE_POINTS = 25;
+
+function levelInfo(points) {
+  let idx = 0;
+  for (let i = 0; i < LEVELS.length; i++) if (points >= LEVELS[i].min) idx = i;
+  const cur = LEVELS[idx], next = LEVELS[idx + 1] || null;
+  const progressPct = next ? Math.min(Math.round((points - cur.min) / (next.min - cur.min) * 100), 100) : 100;
+  return { n: idx + 1, title: cur.title, emoji: cur.emoji, nextAt: next ? next.min : null, progressPct };
+}
+
+async function addPoints(userId, pts) {
+  await pool.query(
+    `INSERT INTO gamification (user_id, points) VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET points = gamification.points + $2, updated_at = NOW()`,
+    [userId, pts]
+  );
+}
+
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+app.get('/api/gamification', authenticateToken, async (req, res) => {
+  try {
+    const [tx, bank, goals, chal, gami, budg, earned] = await Promise.all([
+      pool.query(`SELECT COUNT(*) c,
+                         COALESCE(SUM(CASE WHEN amount>0 THEN amount ELSE 0 END),0) inc,
+                         COALESCE(SUM(CASE WHEN amount<0 THEN ABS(amount) ELSE 0 END),0) exp
+                  FROM transactions WHERE user_id=$1`, [req.userId]),
+      pool.query('SELECT COUNT(*) c FROM bank_connections WHERE user_id=$1', [req.userId]),
+      pool.query(`SELECT COUNT(*) c,
+                         COUNT(*) FILTER (WHERE current_amount >= target_amount) done
+                  FROM goals WHERE user_id=$1`, [req.userId]),
+      pool.query(`SELECT COUNT(*) FILTER (WHERE status='completed') done FROM challenges WHERE user_id=$1`, [req.userId]),
+      pool.query('SELECT points, quiz_correct, quiz_total FROM gamification WHERE user_id=$1', [req.userId]),
+      pool.query('SELECT COUNT(*) c FROM budgets WHERE user_id=$1', [req.userId]),
+      pool.query('SELECT badge_id, earned_at FROM user_badges WHERE user_id=$1', [req.userId]),
+    ]);
+
+    const g = gami.rows[0] || { points: 0, quiz_correct: 0, quiz_total: 0 };
+    const stats = {
+      txCount:        parseInt(tx.rows[0].c),
+      income:         parseFloat(tx.rows[0].inc),
+      netSavings:     parseFloat(tx.rows[0].inc) - parseFloat(tx.rows[0].exp),
+      bankConnected:  parseInt(bank.rows[0].c) > 0,
+      goalCount:      parseInt(goals.rows[0].c),
+      goalsAchieved:  parseInt(goals.rows[0].done),
+      challengesDone: parseInt(chal.rows[0].done),
+      quizCorrect:    g.quiz_correct,
+      quizTotal:      g.quiz_total,
+      budgetCount:    parseInt(budg.rows[0].c),
+    };
+
+    // Award any newly-qualified badges (+points each, exactly once via UNIQUE)
+    const have = new Set(earned.rows.map(r => r.badge_id));
+    const newBadges = [];
+    for (const b of BADGES) {
+      if (have.has(b.id) || !b.test(stats)) continue;
+      const r = await pool.query(
+        'INSERT INTO user_badges (user_id, badge_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING badge_id',
+        [req.userId, b.id]
+      );
+      if (r.rowCount > 0) { newBadges.push({ id: b.id, name: b.name, emoji: b.emoji }); have.add(b.id); }
+    }
+    if (newBadges.length) await addPoints(req.userId, newBadges.length * NEW_BADGE_POINTS);
+
+    const ptsRow = await pool.query('SELECT points FROM gamification WHERE user_id=$1', [req.userId]);
+    const points = ptsRow.rows[0]?.points || 0;
+
+    res.json({
+      points,
+      level: levelInfo(points),
+      newBadges,
+      badges: BADGES.map(b => ({ id: b.id, name: b.name, emoji: b.emoji, desc: b.desc, earned: have.has(b.id) })),
+      stats: { quizCorrect: stats.quizCorrect, quizTotal: stats.quizTotal, challengesDone: stats.challengesDone },
+    });
+  } catch (err) {
+    console.error('Gamification error:', err.message);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ── Savings Challenges (AI-generated, verified against real spending) ──
+async function weeklySpendByCategory(userId) {
+  // Baseline window = 90 days ending at the user's newest transaction,
+  // so demo/imported data from past months still yields a real baseline.
+  const r = await pool.query(`
+    SELECT category, SUM(ABS(amount)) AS total
+    FROM transactions
+    WHERE user_id=$1 AND amount<0
+      AND transaction_date > (SELECT MAX(transaction_date) FROM transactions WHERE user_id=$1) - INTERVAL '90 days'
+    GROUP BY category ORDER BY total DESC`, [userId]);
+  const span = await pool.query(`
+    SELECT GREATEST(1, LEAST(90, MAX(transaction_date) - MIN(transaction_date) + 1)) AS days
+    FROM transactions WHERE user_id=$1 AND amount<0`, [userId]);
+  const days = parseInt(span.rows[0]?.days || 30);
+  return r.rows
+    .map(row => ({ category: row.category || 'أخرى', weekly: parseFloat(row.total) / days * 7 }))
+    .filter(c => c.weekly >= 20 && !['راتب', 'دخل إضافي', 'سكن'].includes(c.category));
+}
+
+app.post('/api/challenges/generate', authenticateToken, async (req, res) => {
+  try {
+    const cats = (await weeklySpendByCategory(req.userId)).slice(0, 5);
+    if (!cats.length) return res.status(400).json({ error: 'أضف معاملاتك أولاً ليتم توليد تحديات مناسبة لك' });
+
+    let items = null;
+    try {
+      const schema = {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            title:         { type: 'STRING' },
+            description:   { type: 'STRING' },
+            category:      { type: 'STRING' },
+            target_amount: { type: 'NUMBER' },
+            reward_points: { type: 'NUMBER' }
+          },
+          required: ['title', 'description', 'category', 'target_amount', 'reward_points']
+        }
+      };
+      const prompt = `أنت مدرب ادخار سعودي محفّز. اقترح 3 تحديات ادخار أسبوعية (7 أيام) بناءً على متوسط الإنفاق الأسبوعي الفعلي للمستخدم أدناه.
+قواعد صارمة:
+- category يجب أن تكون واحدة من هذه القائمة حرفياً: ${cats.map(c => c.category).join('، ')}
+- target_amount هو سقف الإنفاق المسموح للفئة خلال الأسبوع، بين 50% و 85% من المتوسط الأسبوعي للفئة
+- title قصير وجذاب (5 كلمات كحد أقصى) مع إيموجي واحد
+- description سطر واحد يوضح التحدي والتوفير المتوقع بالأرقام
+- reward_points بين 40 و 80 حسب صعوبة التحدي
+- اختر 3 فئات مختلفة
+
+متوسط الإنفاق الأسبوعي للمستخدم:
+${cats.map(c => `${c.category}: ${c.weekly.toFixed(0)} ر.س/أسبوع`).join('\n')}`;
+      const aiText = await groqChat(prompt, 2048, { temperature: 0.7, responseSchema: schema });
+      const parsed = JSON.parse(aiText.replace(/```(?:json)?/gi, '').trim());
+      if (Array.isArray(parsed)) items = parsed;
+    } catch (aiErr) {
+      console.error('Challenge AI failed, using fallback:', aiErr.message);
+    }
+
+    // Deterministic fallback keeps the feature alive when the AI is unavailable
+    if (!items || !items.length) {
+      items = cats.slice(0, 3).map(c => ({
+        title: `⚔️ تحدي ${c.category}`,
+        description: `أنفق أقل من ${Math.round(c.weekly * 0.75)} ر.س على ${c.category} خلال أسبوع (متوسطك ${Math.round(c.weekly)} ر.س) ووفّر ${Math.round(c.weekly * 0.25)} ر.س`,
+        category: c.category,
+        target_amount: Math.round(c.weekly * 0.75),
+        reward_points: 50
+      }));
+    }
+
+    const byCat = Object.fromEntries(cats.map(c => [c.category, c.weekly]));
+    const start = todayStr();
+    const end = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Replace current active challenges with the fresh set
+    await pool.query(`UPDATE challenges SET status='archived' WHERE user_id=$1 AND status='active'`, [req.userId]);
+
+    const saved = [];
+    for (const it of items.slice(0, 3)) {
+      if (!byCat[it.category]) continue; // AI hallucinated a category → skip
+      const weekly = byCat[it.category];
+      const target = Math.min(Math.max(it.target_amount, weekly * 0.4), weekly * 0.9);
+      const reward = Math.min(Math.max(Math.round(it.reward_points || 50), 40), 80);
+      const r = await pool.query(
+        `INSERT INTO challenges (user_id, title, description, category, target_amount, baseline_amount, reward_points, start_date, end_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [req.userId, it.title, it.description, it.category, Math.round(target), Math.round(weekly), reward, start, end]
+      );
+      saved.push(r.rows[0]);
+    }
+    if (!saved.length) return res.status(500).json({ error: 'تعذّر توليد التحديات، حاول مرة أخرى' });
+    res.json({ success: true, challenges: saved });
+  } catch (err) {
+    console.error('Challenge generate error:', err.message);
+    res.status(500).json({ error: 'تعذّر توليد التحديات' });
+  }
+});
+
+app.get('/api/challenges', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM challenges WHERE user_id=$1 AND status != 'archived' ORDER BY created_at DESC LIMIT 12`,
+      [req.userId]
+    );
+    const today = todayStr();
+    const out = [];
+    for (const ch of rows) {
+      const spentRes = await pool.query(
+        `SELECT COALESCE(SUM(ABS(amount)),0) s FROM transactions
+         WHERE user_id=$1 AND amount<0 AND category=$2 AND transaction_date BETWEEN $3 AND $4`,
+        [req.userId, ch.category, ch.start_date, ch.end_date]
+      );
+      const spent = parseFloat(spentRes.rows[0].s);
+      let status = ch.status;
+
+      if (status === 'active' && spent > ch.target_amount) {
+        // Budget blown → challenge failed immediately
+        await pool.query(`UPDATE challenges SET status='failed' WHERE id=$1`, [ch.id]);
+        status = 'failed';
+      } else if (status === 'active' && today > ch.end_date) {
+        // Window over & stayed under budget → success, award points exactly once
+        const r = await pool.query(
+          `UPDATE challenges SET status='completed' WHERE id=$1 AND status='active' RETURNING id`,
+          [ch.id]
+        );
+        if (r.rowCount > 0) await addPoints(req.userId, ch.reward_points);
+        status = 'completed';
+      }
+
+      const daysLeft = Math.max(0, Math.ceil((new Date(ch.end_date) - new Date(today)) / 86400000));
+      out.push({ ...ch, status, spent: Math.round(spent), days_left: daysLeft });
+    }
+    res.json({ challenges: out });
+  } catch (err) {
+    console.error('Challenges error:', err.message);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ── Financial Literacy Quiz (personalized from the user's own data) ──
+app.post('/api/quiz/generate', authenticateToken, async (req, res) => {
+  try {
+    const { rows: txs } = await pool.query(
+      'SELECT amount, category, description, transaction_date FROM transactions WHERE user_id=$1 ORDER BY transaction_date DESC LIMIT 200',
+      [req.userId]
+    );
+    if (!txs.length) return res.status(400).json({ error: 'أضف معاملاتك أولاً ليكون الاختبار مخصصاً لك' });
+
+    const catTotals = {}, monthTotals = {};
+    let income = 0, expenses = 0;
+    txs.forEach(t => {
+      const m = String(t.transaction_date).slice(0, 7);
+      if (t.amount < 0) {
+        const a = Math.abs(t.amount);
+        expenses += a;
+        catTotals[t.category || 'أخرى'] = (catTotals[t.category || 'أخرى'] || 0) + a;
+        monthTotals[m] = (monthTotals[m] || 0) + a;
+      } else income += t.amount;
+    });
+    const topCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+    const lastMonth = Object.keys(monthTotals).sort().pop();
+
+    let questions = null;
+    try {
+      const schema = {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            question:    { type: 'STRING' },
+            options:     { type: 'ARRAY', items: { type: 'STRING' } },
+            correct:     { type: 'NUMBER' },
+            explanation: { type: 'STRING' }
+          },
+          required: ['question', 'options', 'correct', 'explanation']
+        }
+      };
+      const prompt = `أنت مدرّب تثقيف مالي. أنشئ 4 أسئلة اختيار من متعدد بالعربية لاختبار وعي المستخدم المالي.
+- سؤالان عن بياناته الفعلية أدناه (مثلاً: أكبر فئة إنفاق، إجمالي مصاريف شهر معين)
+- سؤالان عن مبادئ مالية عامة (صندوق الطوارئ، قاعدة 50/30/20، الادخار، التضخم)
+- لكل سؤال 4 خيارات، correct هو رقم الخيار الصحيح (0-3)
+- explanation سطر واحد يشرح الإجابة الصحيحة
+
+بيانات المستخدم:
+إجمالي الدخل: ${income.toFixed(0)} ر.س | إجمالي المصاريف: ${expenses.toFixed(0)} ر.س
+المصاريف حسب الفئة: ${topCats.map(([c, v]) => `${c}: ${v.toFixed(0)}`).join('، ')}
+المصاريف الشهرية: ${Object.entries(monthTotals).sort().map(([m, v]) => `${m}: ${v.toFixed(0)}`).join('، ')}`;
+      const aiText = await groqChat(prompt, 4096, { temperature: 0.5, responseSchema: schema });
+      const parsed = JSON.parse(aiText.replace(/```(?:json)?/gi, '').trim());
+      if (Array.isArray(parsed)) {
+        questions = parsed.filter(q =>
+          q.question && Array.isArray(q.options) && q.options.length === 4 &&
+          Number.isInteger(q.correct) && q.correct >= 0 && q.correct <= 3
+        ).slice(0, 4);
+      }
+    } catch (aiErr) {
+      console.error('Quiz AI failed, using fallback:', aiErr.message);
+    }
+
+    // Data-derived fallback quiz — works with zero AI availability
+    if (!questions || questions.length < 2) {
+      const shuffle = (opts, correctVal) => {
+        const arr = [...opts].sort(() => Math.random() - 0.5);
+        return { options: arr, correct: arr.indexOf(correctVal) };
+      };
+      questions = [];
+      if (topCats.length >= 2) {
+        const names = topCats.slice(0, 4).map(([c]) => c);
+        while (names.length < 4) names.push(['ترفيه', 'صحة', 'فواتير', 'مواصلات'].find(x => !names.includes(x)) || 'أخرى');
+        const q = shuffle(names, topCats[0][0]);
+        questions.push({ question: 'ما أكبر فئة إنفاق لديك؟', ...q, explanation: `أكبر فئة إنفاق لديك هي ${topCats[0][0]} بمجموع ${topCats[0][1].toFixed(0)} ر.س` });
+      }
+      if (lastMonth) {
+        const v = monthTotals[lastMonth];
+        const q = shuffle([v, v * 0.7, v * 1.3, v * 1.6].map(x => `${Math.round(x).toLocaleString('en')} ر.س`), `${Math.round(v).toLocaleString('en')} ر.س`);
+        questions.push({ question: `كم بلغ إجمالي مصاريفك في شهر ${lastMonth}؟`, ...q, explanation: `أنفقت ${Math.round(v).toLocaleString('en')} ر.س في ${lastMonth}` });
+      }
+      const q3 = shuffle(['شهر واحد', '3 إلى 6 أشهر', 'أسبوعان', 'سنتان كاملتان'], '3 إلى 6 أشهر');
+      questions.push({ question: 'كم يُنصح أن يغطي صندوق الطوارئ من نفقاتك؟', ...q3, explanation: 'يُنصح بادخار ما يغطي 3-6 أشهر من النفقات الأساسية للطوارئ' });
+      const q4 = shuffle(['50% أساسيات، 30% رغبات، 20% ادخار', '50% رغبات، 30% ادخار، 20% أساسيات', '50% ادخار، 30% أساسيات، 20% رغبات', 'إنفاق كل الدخل بالتساوي'], '50% أساسيات، 30% رغبات، 20% ادخار');
+      questions.push({ question: 'ما هي قاعدة 50/30/20 لتوزيع الدخل؟', ...q4, explanation: 'القاعدة: 50% للأساسيات، 30% للرغبات، 20% للادخار والاستثمار' });
+    }
+
+    res.json({ questions });
+  } catch (err) {
+    console.error('Quiz generate error:', err.message);
+    res.status(500).json({ error: 'تعذّر توليد الاختبار' });
+  }
+});
+
+const QUIZ_POINTS_PER_CORRECT = 15;
+
+app.post('/api/quiz/submit', authenticateToken, async (req, res) => {
+  try {
+    const total   = Math.min(Math.max(parseInt(req.body.total) || 0, 0), 10);
+    const correct = Math.min(Math.max(parseInt(req.body.correct) || 0, 0), total);
+    const gained  = correct * QUIZ_POINTS_PER_CORRECT;
+    await pool.query(
+      `INSERT INTO gamification (user_id, points, quiz_correct, quiz_total) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (user_id) DO UPDATE SET
+         points = gamification.points + $2,
+         quiz_correct = gamification.quiz_correct + $3,
+         quiz_total = gamification.quiz_total + $4,
+         updated_at = NOW()`,
+      [req.userId, gained, correct, total]
+    );
+    const { rows } = await pool.query('SELECT points, quiz_correct, quiz_total FROM gamification WHERE user_id=$1', [req.userId]);
+    res.json({ success: true, gained, points: rows[0].points, level: levelInfo(rows[0].points) });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ── Smart Budget (AI-suggested caps vs real spending) ─────
+async function monthlyAvgByCategory(userId) {
+  // Average over the 3 most recent months that actually have expenses
+  const { rows } = await pool.query(`
+    WITH months AS (
+      SELECT DISTINCT TO_CHAR(transaction_date,'YYYY-MM') m
+      FROM transactions WHERE user_id=$1 AND amount<0
+      ORDER BY m DESC LIMIT 3
+    )
+    SELECT category, SUM(ABS(amount)) / (SELECT COUNT(*) FROM months) AS avg_monthly
+    FROM transactions
+    WHERE user_id=$1 AND amount<0 AND TO_CHAR(transaction_date,'YYYY-MM') IN (SELECT m FROM months)
+    GROUP BY category ORDER BY avg_monthly DESC`, [userId]);
+  return rows.map(r => ({ category: r.category || 'أخرى', avg: parseFloat(r.avg_monthly) }));
+}
+
+app.get('/api/budget', authenticateToken, async (req, res) => {
+  try {
+    const { rows: budgets } = await pool.query('SELECT category, monthly_limit FROM budgets WHERE user_id=$1', [req.userId]);
+    // Reference month = latest month with data (same convention as /api/summary)
+    const { rows: spent } = await pool.query(`
+      SELECT category, SUM(ABS(amount)) s FROM transactions
+      WHERE user_id=$1 AND amount<0 AND TO_CHAR(transaction_date,'YYYY-MM') = COALESCE(
+        (SELECT TO_CHAR(MAX(transaction_date),'YYYY-MM') FROM transactions WHERE user_id=$1),
+        TO_CHAR(NOW(),'YYYY-MM'))
+      GROUP BY category`, [req.userId]);
+    const { rows: monthRow } = await pool.query(
+      `SELECT COALESCE((SELECT TO_CHAR(MAX(transaction_date),'YYYY-MM') FROM transactions WHERE user_id=$1), TO_CHAR(NOW(),'YYYY-MM')) m`,
+      [req.userId]);
+    const spentBy = Object.fromEntries(spent.map(r => [r.category || 'أخرى', parseFloat(r.s)]));
+    const out = budgets.map(b => ({
+      category: b.category,
+      monthly_limit: b.monthly_limit,
+      spent: Math.round(spentBy[b.category] || 0),
+      pct: Math.round((spentBy[b.category] || 0) / b.monthly_limit * 100)
+    })).sort((a, b) => b.pct - a.pct);
+    res.json({
+      month: monthRow[0].m,
+      budgets: out,
+      totalLimit: Math.round(out.reduce((s, b) => s + b.monthly_limit, 0)),
+      totalSpent: Math.round(out.reduce((s, b) => s + b.spent, 0))
+    });
+  } catch (err) {
+    console.error('Budget error:', err.message);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/budget/generate', authenticateToken, async (req, res) => {
+  try {
+    const avgs = await monthlyAvgByCategory(req.userId);
+    if (!avgs.length) return res.status(400).json({ error: 'أضف معاملاتك أولاً ليتم اقتراح ميزانية مناسبة' });
+    const { rows: incRows } = await pool.query(
+      `SELECT COALESCE(SUM(amount),0) / GREATEST(COUNT(DISTINCT TO_CHAR(transaction_date,'YYYY-MM')),1) inc
+       FROM transactions WHERE user_id=$1 AND amount>0`, [req.userId]);
+    const monthlyIncome = parseFloat(incRows[0].inc);
+
+    let items = null;
+    try {
+      const schema = {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: { category: { type: 'STRING' }, monthly_limit: { type: 'NUMBER' } },
+          required: ['category', 'monthly_limit']
+        }
+      };
+      const prompt = `أنت مخطط ميزانيات. ضع سقف إنفاق شهري لكل فئة من فئات المستخدم أدناه.
+قواعد:
+- category حرفياً من القائمة أدناه فقط، ولكل فئة سطر واحد
+- الفئات الأساسية (سكن، فواتير، صحة) تبقى قريبة من متوسطها
+- الفئات الكمالية (مطاعم، تسوق، ترفيه) خفّضها 10-25% عن المتوسط
+- مجموع السقوف لا يتجاوز 80% من الدخل الشهري (${monthlyIncome.toFixed(0)} ر.س) إن أمكن
+
+متوسط الإنفاق الشهري:
+${avgs.map(a => `${a.category}: ${a.avg.toFixed(0)} ر.س`).join('\n')}`;
+      const aiText = await groqChat(prompt, 2048, { temperature: 0.3, responseSchema: schema });
+      const parsed = JSON.parse(aiText.replace(/```(?:json)?/gi, '').trim());
+      if (Array.isArray(parsed)) items = parsed;
+    } catch (aiErr) {
+      console.error('Budget AI failed, using fallback:', aiErr.message);
+    }
+    if (!items || !items.length) {
+      // Same policy the AI is prompted with: essentials keep their average, discretionary tightens
+      const essential = ['سكن', 'فواتير', 'صحة'];
+      items = avgs.map(a => ({ category: a.category, monthly_limit: Math.round(a.avg * (essential.includes(a.category) ? 1.0 : 0.85)) }));
+    }
+
+    const avgBy = Object.fromEntries(avgs.map(a => [a.category, a.avg]));
+    let saved = 0;
+    for (const it of items) {
+      if (!avgBy[it.category] || !(it.monthly_limit > 0)) continue;
+      // Keep AI output sane: between 50% and 120% of the category's average
+      const limit = Math.round(Math.min(Math.max(it.monthly_limit, avgBy[it.category] * 0.5), avgBy[it.category] * 1.2));
+      await pool.query(
+        `INSERT INTO budgets (user_id, category, monthly_limit) VALUES ($1,$2,$3)
+         ON CONFLICT (user_id, category) DO UPDATE SET monthly_limit=$3, updated_at=NOW()`,
+        [req.userId, it.category, limit]
+      );
+      saved++;
+    }
+    if (!saved) return res.status(500).json({ error: 'تعذّر توليد الميزانية' });
+    res.json({ success: true, saved });
+  } catch (err) {
+    console.error('Budget generate error:', err.message);
+    res.status(500).json({ error: 'تعذّر توليد الميزانية' });
+  }
+});
+
+app.put('/api/budget', authenticateToken, async (req, res) => {
+  const { category, monthlyLimit } = req.body;
+  if (!category || !(monthlyLimit > 0)) return res.status(400).json({ error: 'فئة ومبلغ صحيح مطلوبان' });
+  try {
+    await pool.query(
+      `INSERT INTO budgets (user_id, category, monthly_limit) VALUES ($1,$2,$3)
+       ON CONFLICT (user_id, category) DO UPDATE SET monthly_limit=$3, updated_at=NOW()`,
+      [req.userId, category, monthlyLimit]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/budget/:category', authenticateToken, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM budgets WHERE user_id=$1 AND category=$2', [req.userId, req.params.category]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Database error' });

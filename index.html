@@ -969,6 +969,123 @@
 
     .cat-breakdown-amt { font-size: 15px; font-weight: 800; }
 
+    /* ══ GAMIFICATION / CHALLENGES ══ */
+    .points-chip {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 100px; border: 0.5px solid rgba(245,166,35,0.3);
+      background: var(--amber-l); color: var(--amber);
+      font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .points-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(245,166,35,0.25); }
+
+    .level-card { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+    .level-emoji {
+      width: 84px; height: 84px; border-radius: 24px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 42px;
+      background: var(--amber-l); border: 0.5px solid rgba(245,166,35,0.3);
+      box-shadow: 0 0 26px rgba(245,166,35,0.18);
+    }
+    .level-info { flex: 1; min-width: 220px; }
+    .level-title { font-size: 19px; font-weight: 800; }
+    .level-points { font-size: 14px; color: var(--amber); font-weight: 700; margin-top: 3px; }
+    .level-next { font-size: 12px; color: var(--text2); }
+    .level-stats { display: flex; gap: 12px; }
+    .level-stat {
+      background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--r12);
+      padding: 12px 18px; text-align: center; min-width: 86px;
+    }
+    .level-stat-val { font-size: 20px; font-weight: 800; color: var(--teal); }
+    .level-stat-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    .chal-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+
+    .chal-item {
+      border: 0.5px solid var(--border2); border-radius: var(--r12);
+      padding: 14px 16px; margin-bottom: 10px; background: var(--bg2);
+    }
+    .chal-item.done   { border-color: rgba(34,197,94,0.35);  background: rgba(34,197,94,0.06); }
+    .chal-item.failed { border-color: rgba(255,92,92,0.3);   background: rgba(255,92,92,0.05); opacity: 0.8; }
+    .chal-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .chal-title { font-size: 14px; font-weight: 800; }
+    .chal-reward {
+      font-size: 11px; font-weight: 800; color: var(--amber); background: var(--amber-l);
+      padding: 3px 10px; border-radius: 100px; white-space: nowrap;
+    }
+    .chal-desc { font-size: 12px; color: var(--text2); margin-bottom: 10px; line-height: 1.7; }
+    .chal-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-top: 6px; }
+
+    .quiz-cta { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .quiz-stats { font-size: 12px; color: var(--amber); font-weight: 700; margin-top: 8px; }
+
+    .badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .badge-item {
+      border: 0.5px solid var(--border2); border-radius: var(--r12); background: var(--bg2);
+      padding: 16px 12px; text-align: center; transition: all 0.2s;
+    }
+    .badge-item.earned { border-color: rgba(245,166,35,0.35); background: rgba(245,166,35,0.06); }
+    .badge-item.locked { opacity: 0.45; filter: grayscale(1); }
+    .badge-item:hover { transform: translateY(-2px); }
+    .badge-emoji { font-size: 30px; margin-bottom: 6px; }
+    .badge-name { font-size: 13px; font-weight: 800; }
+    .badge-desc { font-size: 11px; color: var(--text2); margin-top: 3px; line-height: 1.6; }
+
+    /* Quiz modal */
+    .quiz-q { font-size: 16px; font-weight: 800; margin-bottom: 18px; line-height: 1.8; }
+    .quiz-opt {
+      display: block; width: 100%; text-align: right; font-family: inherit;
+      padding: 13px 16px; margin-bottom: 9px; border-radius: var(--r12); cursor: pointer;
+      border: 0.5px solid var(--border2); background: var(--bg2); color: var(--text);
+      font-size: 14px; font-weight: 600; transition: all 0.15s;
+    }
+    .quiz-opt:hover:not(:disabled) { border-color: var(--teal); background: var(--teal-l); }
+    .quiz-opt:disabled { cursor: default; }
+    .quiz-opt.correct { border-color: #22C55E; background: rgba(34,197,94,0.12); color: #22C55E; }
+    .quiz-opt.wrong   { border-color: var(--red); background: var(--red-l); color: var(--red); }
+    .quiz-expl {
+      font-size: 12.5px; color: var(--text2); background: var(--bg2); border-radius: var(--r8);
+      padding: 11px 14px; margin: 6px 0 14px; line-height: 1.8; border-right: 3px solid var(--teal);
+    }
+    .quiz-progress { font-size: 12px; color: var(--text2); font-weight: 700; margin-bottom: 12px; }
+    .quiz-result { text-align: center; padding: 18px 0; }
+    .quiz-result-emoji { font-size: 54px; margin-bottom: 12px; }
+    .quiz-result-score { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .quiz-result-pts { font-size: 15px; color: var(--amber); font-weight: 800; margin-bottom: 18px; }
+
+    /* Budget rows */
+    .budget-row { padding: 11px 0; border-bottom: 0.5px solid var(--border); }
+    .budget-row:last-child { border-bottom: none; }
+    .budget-row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; }
+    .budget-row-name { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .budget-row-amt { font-size: 12.5px; font-weight: 700; }
+    .budget-alert {
+      font-size: 10.5px; font-weight: 800; padding: 2px 9px; border-radius: 100px;
+      background: var(--red-l); color: var(--red);
+    }
+    .budget-warn { background: var(--amber-l); color: var(--amber); }
+    .budget-ok   { background: var(--teal-l);  color: var(--teal); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 90px; right: 50%; transform: translate(50%, 20px);
+      background: var(--bg2); border: 0.5px solid rgba(245,166,35,0.4); color: var(--text);
+      border-radius: var(--r12); padding: 13px 22px; font-size: 14px; font-weight: 700;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.45); opacity: 0; pointer-events: none;
+      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 300;
+    }
+    .toast.show { opacity: 1; transform: translate(50%, 0); }
+
+    @media (max-width: 640px) {
+      .level-card { gap: 14px; }
+      .level-emoji { width: 64px; height: 64px; font-size: 32px; border-radius: 18px; }
+      .level-stats { width: 100%; }
+      .level-stat { flex: 1; }
+      .points-chip { padding: 6px 10px; font-size: 12px; }
+    }
+
     /* ══ GOALS PAGE ══ */
     .goals-wrap { max-width: 1280px; margin: 0 auto; }
 
@@ -1698,8 +1815,12 @@
       <button class="nav-btn active" data-page="dash" onclick="goTo('dash',this)">لوحة التحكم</button>
       <button class="nav-btn" data-page="expenses" onclick="goTo('expenses',this)">المصروفات</button>
       <button class="nav-btn" data-page="goals-page" onclick="goTo('goals-page',this)">الأهداف</button>
+      <button class="nav-btn" data-page="challenges-page" onclick="goTo('challenges-page',this)">التحديات</button>
     </nav>
     <div class="header-right">
+      <button class="points-chip" id="pointsChip" onclick="goTo('challenges-page',null)" title="نقاطك — صفحة التحديات">
+        ⭐ <span id="headerPoints">0</span>
+      </button>
       <span id="headerUsername" style="font-size:13px;color:var(--text2);font-weight:500;padding:0 4px"></span>
       <button class="icon-btn" id="themeToggle" title="تبديل المظهر" onclick="toggleTheme()">
         <i class="ti ti-sun" id="themeIcon"></i>
@@ -1721,6 +1842,9 @@
     </button>
     <button class="bnav-btn" data-page="goals-page" onclick="goTo('goals-page',null)">
       <i class="ti ti-target"></i><span>الأهداف</span>
+    </button>
+    <button class="bnav-btn" data-page="challenges-page" onclick="goTo('challenges-page',null)">
+      <i class="ti ti-trophy"></i><span>التحديات</span>
     </button>
   </nav>
 
@@ -1857,6 +1981,18 @@
           <div class="stat-lbl">أكبر فئة إنفاق</div>
         </div>
       </div>
+      <div class="cat-breakdown" style="margin-bottom:16px">
+        <div class="chal-head">
+          <div>
+            <div class="card-title">🗂️ الميزانية الذكية <span id="budgetMonth" style="font-weight:500;color:var(--text2);font-size:13px"></span></div>
+            <div class="kpi-sub">سقوف إنفاق يقترحها الذكاء الاصطناعي من متوسط إنفاقك — وتنبيهات عند التجاوز</div>
+          </div>
+          <button class="btn-add" id="genBudgetBtn" onclick="generateBudget()">
+            <i class="ti ti-sparkles"></i> توليد ميزانية
+          </button>
+        </div>
+        <div id="budgetList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
       <div class="charts-row">
         <div class="chart-box">
           <div class="chart-title">توزيع المصروفات</div>
@@ -1893,6 +2029,63 @@
       <div class="goals-grid" id="goalsGrid">
         <div class="loading"><div class="spinner"></div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ CHALLENGES / GAMIFICATION PAGE ══ -->
+  <div id="challenges-page" class="page">
+    <div class="goals-wrap">
+
+      <!-- Level hero -->
+      <div class="card level-card">
+        <div class="level-emoji" id="lvlEmoji">🌱</div>
+        <div class="level-info">
+          <div class="level-title">المستوى <span id="lvlNum">1</span> — <span id="lvlName">مبتدئ</span></div>
+          <div class="level-points"><span id="lvlPoints">0</span> نقطة</div>
+          <div class="bar-track" style="height:8px;margin:10px 0 6px">
+            <div class="bar-fill" id="lvlBar" style="height:8px;background:linear-gradient(90deg,var(--amber),#ffd479);width:0%"></div>
+          </div>
+          <div class="level-next" id="lvlNext">اجمع النقاط بإكمال التحديات والاختبارات</div>
+        </div>
+        <div class="level-stats">
+          <div class="level-stat"><div class="level-stat-val" id="statChalDone">0</div><div class="level-stat-lbl">تحدٍ مكتمل</div></div>
+          <div class="level-stat"><div class="level-stat-val" id="statQuizCorrect">0</div><div class="level-stat-lbl">إجابة صحيحة</div></div>
+        </div>
+      </div>
+
+      <!-- Weekly savings challenges -->
+      <div class="card" style="margin-top:16px">
+        <div class="chal-head">
+          <div>
+            <div class="card-title">⚔️ تحديات الادخار الأسبوعية</div>
+            <div class="kpi-sub">تحديات مولّدة من إنفاقك الفعلي — التزم بالسقف واكسب النقاط</div>
+          </div>
+          <button class="btn-add" id="genChalBtn" onclick="generateChallenges()">
+            <i class="ti ti-sparkles"></i> تحديات جديدة
+          </button>
+        </div>
+        <div id="chalList"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- Financial literacy quiz -->
+      <div class="card quiz-card" style="margin-top:16px">
+        <div class="quiz-cta">
+          <div>
+            <div class="card-title">🧠 اختبار الوعي المالي</div>
+            <div class="kpi-sub">أسئلة مخصصة من أرقامك الحقيقية — كل إجابة صحيحة = 15 نقطة</div>
+            <div class="quiz-stats" id="quizStatsLine"></div>
+          </div>
+          <button class="btn-add" onclick="startQuiz()"><i class="ti ti-brain"></i> ابدأ الاختبار</button>
+        </div>
+      </div>
+
+      <!-- Badges -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">🏅 الأوسمة</div>
+        <div class="kpi-sub" style="margin-bottom:14px">كل وسام جديد يمنحك 25 نقطة</div>
+        <div class="badges-grid" id="badgesGrid"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
     </div>
   </div>
 
@@ -1970,6 +2163,22 @@
       </div>
     </div>
   </div>
+
+  <!-- ══ QUIZ MODAL ══ -->
+  <div class="overlay" id="quizOverlay" onclick="closeQuizOverlay(event)">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title"><i class="ti ti-brain" style="color:var(--teal)"></i> اختبار الوعي المالي</div>
+        <button class="modal-close" onclick="document.getElementById('quizOverlay').classList.remove('open')">×</button>
+      </div>
+      <div class="modal-body" id="quizBody">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Points toast -->
+  <div id="toast" class="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
@@ -2093,8 +2302,9 @@
       // keep top nav and mobile bottom nav in sync
       document.querySelectorAll('.nav-btn, .bnav-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.page === id));
-      if (id === 'expenses')   renderExpenses();
+      if (id === 'expenses')   { loadBudget(); renderExpenses(); }
       if (id === 'goals-page') loadGoals();
+      if (id === 'challenges-page') { loadChallenges(); loadGamification(); }
     }
 
     /* ── SHARED TRANSACTION ROW ── */
@@ -2615,6 +2825,241 @@
       loadGoals(); loadDash();
     }
 
+    /* ── GAMIFICATION: level, badges, challenges, quiz, budget ── */
+    const esc = s => String(s).replace(/</g, '&lt;');
+    let toastTimer = null;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 4200);
+    }
+
+    async function loadGamification() {
+      try {
+        const r = await apiFetch(`${API}/gamification`);
+        if (!r.ok) return;
+        const d = await r.json();
+        document.getElementById('headerPoints').textContent = d.points;
+        document.getElementById('lvlEmoji').textContent  = d.level.emoji;
+        document.getElementById('lvlNum').textContent    = d.level.n;
+        document.getElementById('lvlName').textContent   = d.level.title;
+        document.getElementById('lvlPoints').textContent = d.points;
+        document.getElementById('lvlBar').style.width    = d.level.progressPct + '%';
+        document.getElementById('lvlNext').textContent   = d.level.nextAt
+          ? `${d.level.nextAt - d.points} نقطة تفصلك عن المستوى التالي`
+          : 'وصلت لأعلى مستوى! 👑';
+        document.getElementById('statChalDone').textContent    = d.stats.challengesDone;
+        document.getElementById('statQuizCorrect').textContent = d.stats.quizCorrect;
+        document.getElementById('quizStatsLine').textContent   = d.stats.quizTotal
+          ? `أجبت على ${d.stats.quizTotal} سؤال حتى الآن، منها ${d.stats.quizCorrect} صحيحة ✓` : '';
+        document.getElementById('badgesGrid').innerHTML = d.badges.map(b => `
+          <div class="badge-item ${b.earned ? 'earned' : 'locked'}" title="${esc(b.desc)}">
+            <div class="badge-emoji">${b.emoji}</div>
+            <div class="badge-name">${esc(b.name)}</div>
+            <div class="badge-desc">${esc(b.desc)}</div>
+          </div>`).join('');
+        if (d.newBadges?.length) {
+          showToast(`🏅 وسام جديد: ${d.newBadges.map(b => b.emoji + ' ' + b.name).join('، ')} (+${d.newBadges.length * 25} نقطة)`);
+        }
+      } catch (e) {}
+    }
+
+    /* ── Challenges ── */
+    async function loadChallenges() {
+      const el = document.getElementById('chalList');
+      try {
+        const r = await apiFetch(`${API}/challenges`);
+        const d = await r.json();
+        const list = d.challenges || [];
+        if (!list.length) {
+          el.innerHTML = `<div style="text-align:center;padding:26px 0">
+            <div style="font-size:44px;margin-bottom:10px">⚔️</div>
+            <p style="font-size:13px;color:var(--text2)">لا توجد تحديات بعد — اضغط «تحديات جديدة» ليولّد الذكاء الاصطناعي تحديات من إنفاقك الفعلي</p>
+          </div>`;
+          return;
+        }
+        el.innerHTML = list.map(ch => {
+          const pct   = Math.min(Math.round(ch.spent / ch.target_amount * 100), 100);
+          const color = ch.status === 'failed' ? 'var(--red)' : pct >= 85 ? 'var(--amber)' : 'var(--teal)';
+          const cls   = ch.status === 'completed' ? 'done' : ch.status === 'failed' ? 'failed' : '';
+          const state = ch.status === 'completed' ? `🎉 اكتمل التحدي! +${ch.reward_points} نقطة`
+                      : ch.status === 'failed'    ? '✖ تجاوزت السقف — حاول في التحدي القادم'
+                      : `⏳ متبقي ${ch.days_left} يوم`;
+          return `<div class="chal-item ${cls}">
+            <div class="chal-top">
+              <div class="chal-title">${esc(ch.title)}</div>
+              <span class="chal-reward">⭐ ${ch.reward_points} نقطة</span>
+            </div>
+            <div class="chal-desc">${esc(ch.description || '')}</div>
+            <div class="bar-track" style="height:6px">
+              <div class="bar-fill" style="height:6px;width:${pct}%;background:${color}"></div>
+            </div>
+            <div class="chal-meta">
+              <span>أنفقت ${ch.spent.toLocaleString('ar-SA')} من سقف ${Math.round(ch.target_amount).toLocaleString('ar-SA')} ر.س</span>
+              <span>${state}</span>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        el.innerHTML = '<p class="empty-state">تعذّر تحميل التحديات</p>';
+      }
+    }
+
+    async function generateChallenges() {
+      const btn = document.getElementById('genChalBtn');
+      const old = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ti ti-loader-2"></i> يولّد الذكاء الاصطناعي...';
+      try {
+        const r = await apiFetch(`${API}/challenges/generate`, { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) { showToast('❌ ' + (d.error || 'تعذّر توليد التحديات')); return; }
+        showToast('⚔️ تحدياتك الجديدة جاهزة — بالتوفيق!');
+        loadChallenges();
+      } catch (e) { showToast('❌ خطأ في الاتصال بالخادم'); }
+      finally { btn.disabled = false; btn.innerHTML = old; }
+    }
+
+    /* ── Financial literacy quiz ── */
+    let quizQs = [], quizIdx = 0, quizScore = 0, quizAnswered = false;
+
+    async function startQuiz() {
+      document.getElementById('quizOverlay').classList.add('open');
+      const body = document.getElementById('quizBody');
+      body.innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:12px;margin-top:8px;color:var(--text2)">يجهّز الذكاء الاصطناعي أسئلة من بياناتك...</div></div>';
+      try {
+        const r = await apiFetch(`${API}/quiz/generate`, { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok || !d.questions?.length) {
+          body.innerHTML = `<p class="empty-state">${esc(d.error || 'تعذّر توليد الاختبار — حاول لاحقاً')}</p>`;
+          return;
+        }
+        quizQs = d.questions; quizIdx = 0; quizScore = 0;
+        renderQuizQ();
+      } catch (e) { body.innerHTML = '<p class="empty-state">خطأ في الاتصال بالخادم</p>'; }
+    }
+
+    function renderQuizQ() {
+      quizAnswered = false;
+      const q = quizQs[quizIdx];
+      document.getElementById('quizBody').innerHTML = `
+        <div class="quiz-progress">السؤال ${quizIdx + 1} من ${quizQs.length}</div>
+        <div class="quiz-q">${esc(q.question)}</div>
+        ${q.options.map((o, i) => `<button class="quiz-opt" onclick="answerQuiz(${i})">${esc(o)}</button>`).join('')}
+        <div id="quizNext"></div>`;
+    }
+
+    function answerQuiz(i) {
+      if (quizAnswered) return;
+      quizAnswered = true;
+      const q    = quizQs[quizIdx];
+      const opts = document.querySelectorAll('.quiz-opt');
+      opts.forEach(o => o.disabled = true);
+      opts[q.correct].classList.add('correct');
+      if (i === q.correct) quizScore++;
+      else opts[i].classList.add('wrong');
+      const last = quizIdx === quizQs.length - 1;
+      document.getElementById('quizNext').innerHTML = `
+        ${q.explanation ? `<div class="quiz-expl">💡 ${esc(q.explanation)}</div>` : ''}
+        <button class="btn-submit" onclick="${last ? 'finishQuiz()' : 'nextQuizQ()'}">${last ? 'عرض النتيجة 🏁' : 'السؤال التالي'}</button>`;
+    }
+
+    function nextQuizQ() { quizIdx++; renderQuizQ(); }
+
+    async function finishQuiz() {
+      const total = quizQs.length;
+      let gained = quizScore * 15;
+      try {
+        const r = await apiFetch(`${API}/quiz/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correct: quizScore, total })
+        });
+        const d = await r.json();
+        if (r.ok) { gained = d.gained; document.getElementById('headerPoints').textContent = d.points; }
+      } catch (e) {}
+      const ratio = quizScore / total;
+      document.getElementById('quizBody').innerHTML = `
+        <div class="quiz-result">
+          <div class="quiz-result-emoji">${ratio >= 0.75 ? '🏆' : ratio >= 0.5 ? '👏' : '📚'}</div>
+          <div class="quiz-result-score">${quizScore} من ${total} إجابات صحيحة</div>
+          <div class="quiz-result-pts">+${gained} نقطة أُضيفت لرصيدك ⭐</div>
+          <button class="btn-submit" onclick="document.getElementById('quizOverlay').classList.remove('open')">تم ✓</button>
+        </div>`;
+      loadGamification();
+    }
+
+    function closeQuizOverlay(e) { if (e.target === document.getElementById('quizOverlay')) document.getElementById('quizOverlay').classList.remove('open'); }
+
+    /* ── Smart budget ── */
+    async function loadBudget() {
+      const el = document.getElementById('budgetList');
+      try {
+        const r = await apiFetch(`${API}/budget`);
+        const d = await r.json();
+        const list = d.budgets || [];
+        if (d.month) {
+          const [y, m] = d.month.split('-');
+          document.getElementById('budgetMonth').textContent = `— ${MONTHS_AR[parseInt(m) - 1]} ${y}`;
+        }
+        if (!list.length) {
+          el.innerHTML = `<div style="text-align:center;padding:22px 0">
+            <div style="font-size:40px;margin-bottom:10px">🗂️</div>
+            <p style="font-size:13px;color:var(--text2)">لا توجد ميزانية بعد — اضغط «توليد ميزانية» ليقترح الذكاء الاصطناعي سقفاً لكل فئة من متوسط إنفاقك</p>
+          </div>`;
+          return;
+        }
+        const over = list.filter(b => b.pct > 100).length;
+        const banner = over
+          ? `<div class="insight amber" style="margin-bottom:12px">
+              <div class="insight-icon" style="background:var(--red-l);color:var(--red)"><i class="ti ti-alert-triangle"></i></div>
+              <div><div class="insight-title">تنبيه: تجاوزت الميزانية في ${over} ${over === 1 ? 'فئة' : 'فئات'}</div>
+              <div class="insight-body">راجع الفئات الحمراء أدناه وحاول ضبط إنفاقك</div></div>
+            </div>` : '';
+        el.innerHTML = banner + list.map(b => {
+          const color = b.pct > 100 ? 'var(--red)' : b.pct >= 80 ? 'var(--amber)' : 'var(--teal)';
+          const badge = b.pct > 100 ? `<span class="budget-alert">تجاوز ${b.pct}%</span>`
+                      : b.pct >= 80 ? `<span class="budget-alert budget-warn">اقتراب ${b.pct}%</span>`
+                      : `<span class="budget-alert budget-ok">ضمن الحد ${b.pct}%</span>`;
+          return `<div class="budget-row">
+            <div class="budget-row-top">
+              <div class="budget-row-name">${catIcon(b.category)} ${esc(b.category)} ${badge}</div>
+              <div class="budget-row-amt">${b.spent.toLocaleString('ar-SA')} <span style="color:var(--text2);font-weight:500">/ ${Math.round(b.monthly_limit).toLocaleString('ar-SA')} ر.س</span></div>
+            </div>
+            <div class="bar-track" style="height:6px">
+              <div class="bar-fill" style="height:6px;width:${Math.min(b.pct, 100)}%;background:${color}"></div>
+            </div>
+          </div>`;
+        }).join('') + `
+          <div class="budget-row" style="border-top:0.5px solid var(--border2);margin-top:4px">
+            <div class="budget-row-top" style="margin-bottom:0">
+              <div class="budget-row-name" style="font-weight:800">الإجمالي</div>
+              <div class="budget-row-amt">${d.totalSpent.toLocaleString('ar-SA')} <span style="color:var(--text2);font-weight:500">/ ${d.totalLimit.toLocaleString('ar-SA')} ر.س</span></div>
+            </div>
+          </div>`;
+      } catch (e) {
+        el.innerHTML = '<p class="empty-state">تعذّر تحميل الميزانية</p>';
+      }
+    }
+
+    async function generateBudget() {
+      const btn = document.getElementById('genBudgetBtn');
+      const old = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ti ti-loader-2"></i> يولّد الذكاء الاصطناعي...';
+      try {
+        const r = await apiFetch(`${API}/budget/generate`, { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) { showToast('❌ ' + (d.error || 'تعذّر توليد الميزانية')); return; }
+        showToast('🗂️ ميزانيتك الذكية جاهزة!');
+        loadBudget();
+      } catch (e) { showToast('❌ خطأ في الاتصال بالخادم'); }
+      finally { btn.disabled = false; btn.innerHTML = old; }
+    }
+
     /* ── AI CHAT ── */
     function openChat(topic) {
       document.getElementById('chatOverlay').classList.add('open');
@@ -2698,6 +3143,7 @@
         }
       } catch(e) {}
       loadDash();
+      loadGamification(); // header points chip + awards any newly-earned badges
     }
 
     /* ── TUTORIAL ── */

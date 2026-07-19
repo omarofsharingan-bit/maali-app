@@ -227,6 +227,26 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// App Store guideline 5.1.1(v): apps with account creation must offer
+// in-app account deletion. Wipes every table that references the user.
+app.delete('/api/auth/account', authenticateToken, async (req, res) => {
+  try {
+    const uid = req.userId;
+    await pool.query('DELETE FROM user_badges       WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM challenges        WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM budgets           WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM gamification      WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM goals             WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM transactions      WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM bank_connections  WHERE user_id=$1', [uid]);
+    await pool.query('DELETE FROM users             WHERE id=$1',      [uid]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Account deletion error:', err.message);
+    res.status(500).json({ error: 'تعذّر حذف الحساب، حاول مرة أخرى' });
+  }
+});
+
 // ── Bank Connection Routes ────────────────────────────────
 app.post('/api/bank/customer', authenticateToken, async (req, res) => {
   try {

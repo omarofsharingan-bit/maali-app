@@ -1093,6 +1093,19 @@
       .points-chip { padding: 6px 10px; font-size: 12px; }
     }
 
+    .account-footer {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 18px 0 6px; font-size: 11.5px; color: var(--text3);
+    }
+    .account-footer a { color: var(--text3); text-decoration: none; }
+    .account-footer a:hover { color: var(--text2); }
+    .account-footer button {
+      background: none; border: none; cursor: pointer; font-family: inherit;
+      font-size: 11.5px; color: var(--text3); padding: 0;
+    }
+    .account-footer button:hover { color: var(--red); }
+
     /* ══ GOALS PAGE ══ */
     .goals-wrap { max-width: 1280px; margin: 0 auto; }
 
@@ -1968,6 +1981,12 @@
       </button>
     </div>
 
+    <div class="account-footer">
+      <a href="/privacy.html" target="_blank">سياسة الخصوصية</a>
+      <span>·</span>
+      <button onclick="deleteAccount()">حذف الحساب وجميع البيانات نهائياً</button>
+    </div>
+
   </div>
 
   <!-- ══ EXPENSES PAGE ══ -->
@@ -2189,7 +2208,9 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script>
-    const API = '/api';
+    // Inside the Capacitor iOS/Android shell the page is served from the app
+    // bundle, so API calls must target the hosted backend absolutely.
+    const API = (window.Capacitor?.isNativePlatform?.() ? 'https://maali-app.onrender.com' : '') + '/api';
 
     /* ══ AUTH ══ */
     let authToken = localStorage.getItem('maali-token') || '';
@@ -2265,6 +2286,25 @@
       localStorage.removeItem('maali-token');
       localStorage.removeItem('maali-user');
       document.getElementById('authPage').classList.remove('hidden');
+    }
+
+    /* App Store 5.1.1: in-app account deletion, double-confirmed */
+    async function deleteAccount() {
+      if (!confirm('سيتم حذف حسابك وجميع بياناتك نهائياً — المعاملات، الأهداف، النقاط، والأوسمة. لا يمكن التراجع. هل أنت متأكد؟')) return;
+      const email = prompt('للتأكيد النهائي، اكتب بريدك الإلكتروني:');
+      if (!email) return;
+      if (email.trim().toLowerCase() !== (authUser?.email || '').toLowerCase()) {
+        alert('البريد غير مطابق — لم يتم الحذف');
+        return;
+      }
+      try {
+        const r = await apiFetch(`${API}/auth/account`, { method: 'DELETE' });
+        const d = await r.json();
+        if (!r.ok) { alert('❌ ' + (d.error || 'تعذّر حذف الحساب')); return; }
+        localStorage.clear();
+        alert('تم حذف حسابك وجميع بياناتك نهائياً 👋');
+        location.reload();
+      } catch (e) { alert('❌ خطأ في الاتصال بالخادم'); }
     }
 
     function enterApp() {

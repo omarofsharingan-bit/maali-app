@@ -1,0 +1,9 @@
+{
+  "appId": "sa.maali.app",
+  "appName": "مالي",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#080807"
+  }
+}

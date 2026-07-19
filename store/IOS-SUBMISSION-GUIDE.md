@@ -61,9 +61,33 @@ Output: `store/screenshots/*.png` at exactly 1290×2796 (6.7-inch requirement).
 ## Step 4 — Archive & upload
 
 In Xcode: **Product → Archive** → Organizer opens → **Distribute App →
-App Store Connect → Upload** (defaults are fine). Wait ~15 min for processing,
-select the build in App Store Connect, then **Submit for Review**.
+App Store Connect → Upload** (defaults are fine). Wait ~15 min for processing.
 
+The export-compliance question is already answered in the project
+(`ITSAppUsesNonExemptEncryption = NO` — the app only uses standard HTTPS),
+so builds go straight to "Ready to Test/Submit" without extra prompts.
+
+## Step 4½ — TestFlight (recommended before the App Store)
+
+Same upload as above — TestFlight is just the beta lane of App Store Connect.
+
+1. App Store Connect → your app → **TestFlight** tab → the uploaded build
+   appears after processing
+2. **Internal testing** (instant, no review): App Store Connect → Users and
+   Access → add your Apple ID → add yourself to an internal group → the app
+   shows up in the TestFlight app on your iPhone within minutes
+3. **External testing** (up to 10,000 testers): create an external group →
+   enable the **public link** → share it. The first build needs a light
+   Beta App Review (~1 day), later builds usually go straight through
+4. Testers install the free **TestFlight** app, open your link, tap Install
+
+Builds expire after 90 days; upload a new build (bump the build number in
+Xcode) to refresh.
+
+## Step 5 — App Store review
+
+When ready for the real store: select the build in the **App Store** tab,
+attach the metadata/screenshots, then **Submit for Review**.
 Review typically takes 1–3 days.
 
 ## Rejection insurance (guideline 4.2 "minimum functionality")

@@ -579,6 +579,63 @@ app.post('/api/demo/load', authenticateToken, async (req, res) => {
   }
 });
 
+// ── Merchant keyword categorizer ─────────────────────────
+// Fallback when the AI (or bank data) leaves a transaction as "أخرى":
+// match well-known Saudi merchants / patterns in the description.
+// Order matters — first matching category wins, broadest (تسوق) last.
+const CATEGORY_KEYWORDS = {
+  'راتب':     ['راتب', 'رواتب', 'SALARY', 'PAYROLL'],
+  'سكن':      ['إيجار', 'ايجار', 'عقار', 'سكن', 'RENT', 'REAL ESTATE'],
+  'صحة':      ['صيدلية', 'النهدي', 'الدواء', 'مستشفى', 'عيادة', 'طبي', 'أسنان', 'اسنان',
+               'PHARMACY', 'NAHDI', 'DAWAA', 'HOSPITAL', 'CLINIC', 'MEDICAL', 'DENTAL'],
+  'مواصلات':  ['أوبر', 'اوبر', 'كريم', 'بنزين', 'وقود', 'محطة', 'أرامكو', 'ارامكو', 'بترومين',
+               'ساسكو', 'الدريس', 'تاكسي', 'UBER', 'CAREEM', 'BOLT', 'ARAMCO', 'PETROMIN',
+               'SASCO', 'ALDREES', 'FUEL', 'PETROL', 'PARKING', 'TAXI'],
+  'مطاعم':    ['مطعم', 'البيك', 'ماكدونالدز', 'هرفي', 'كودو', 'ستاربكس', 'دانكن', 'كافيه',
+               'كوفي', 'مقهى', 'بيتزا', 'برجر', 'شاورما', 'ALBAIK', 'MCDONALD', 'HERFY',
+               'KUDU', 'STARBUCKS', 'DUNKIN', 'PIZZA', 'BURGER', 'KFC', 'SUBWAY', 'DOMINO',
+               'RESTAURANT', 'CAFE', 'COFFEE', 'BASKIN', 'KRISPY', 'SHAWARMA'],
+  'ترفيه':    ['نتفليكس', 'سبوتيفاي', 'شاهد', 'سينما', 'ألعاب', 'العاب', 'NETFLIX', 'SPOTIFY',
+               'SHAHID', 'CINEMA', 'VOX', 'PLAYSTATION', 'STEAM', 'XBOX'],
+  'فواتير':   ['فاتورة', 'فواتير', 'كهرباء', 'مياه', 'اتصالات', 'انترنت', 'موبايلي', 'زين',
+               'STC', 'MOBILY', 'ZAIN', 'INTERNET', 'ELECTRICITY', 'TELECOM'],
+  'تسوق':     ['سوبرماركت', 'هايبر', 'بنده', 'الدانوب', 'التميمي', 'كارفور', 'لولو', 'العثيم',
+               'نادك', 'أسواق', 'اسواق', 'ملابس', 'جرير', 'إكسترا', 'اكسترا', 'ساكو', 'ايكيا',
+               'أمازون', 'امازون', 'نون', 'شي ان', 'شي إن', 'زارا', 'DANUBE', 'PANDA', 'TAMIMI',
+               'CARREFOUR', 'LULU', 'OTHAIM', 'NESTO', 'AMAZON', 'NOON', 'SHEIN', 'IKEA',
+               'JARIR', 'EXTRA', 'SACO', 'ZARA', 'H&M', 'CENTREPOINT', 'MARKET', 'STORE']
+};
+
+function inferCategory(desc) {
+  if (!desc) return null;
+  const upper = String(desc).toUpperCase();
+  for (const [cat, words] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (words.some(w => upper.includes(w.toUpperCase()))) return cat;
+  }
+  return null;
+}
+
+// Re-categorize this user's "أخرى" transactions using the keyword map
+app.post('/api/recategorize', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, description FROM transactions WHERE user_id=$1 AND (category IS NULL OR category IN ('أخرى','Other',''))",
+      [req.userId]
+    );
+    let updated = 0;
+    for (const row of result.rows) {
+      const cat = inferCategory(row.description);
+      if (cat) {
+        await pool.query('UPDATE transactions SET category=$1 WHERE id=$2 AND user_id=$3', [cat, row.id, req.userId]);
+        updated++;
+      }
+    }
+    res.json({ success: true, scanned: result.rows.length, updated });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // ── File Import ───────────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -619,7 +676,10 @@ app.post('/api/import', authenticateToken, upload.single('file'), async (req, re
 قواعد:
 - amount سالب للمصروفات والخصم، موجب للإيداع والدخل
 - date بصيغة YYYY-MM-DD
-- category يجب أن تكون إحدى: مطاعم, تسوق, مواصلات, سكن, راتب, دخل إضافي, فواتير, أخرى
+- category يجب أن تكون إحدى: مطاعم, تسوق, مواصلات, سكن, راتب, دخل إضافي, فواتير, صحة, ترفيه, أخرى
+- صنّف من اسم المتجر: البيك/ستاربكس/ماكدونالدز=مطاعم، الدانوب/بنده/التميمي/أمازون/نون=تسوق، أوبر/كريم/أرامكو=مواصلات، STC/موبايلي/زين/كهرباء=فواتير، النهدي/صيدلية=صحة، نتفليكس/سينما=ترفيه
+- تجاهل عبارات مثل "شراء عبر نقاط البيع" و"Apple Pay" و"POS" — ركّز على اسم المتجر نفسه
+- لا تستخدم "أخرى" إلا إذا استحال معرفة نوع المتجر
 - description النص الأصلي للمعاملة
 - تجاهل الأرصدة والملخصات، فقط المعاملات الفردية
 
@@ -636,7 +696,7 @@ ${rawText.slice(0, 30000)}`;
           date:        { type: 'STRING' },
           amount:      { type: 'NUMBER' },
           description: { type: 'STRING' },
-          category:    { type: 'STRING' }
+          category:    { type: 'STRING', enum: ['مطاعم','تسوق','مواصلات','سكن','راتب','دخل إضافي','فواتير','صحة','ترفيه','أخرى'] }
         },
         required: ['date', 'amount', 'description', 'category']
       }
@@ -692,6 +752,10 @@ ${rawText.slice(0, 30000)}`;
     let inserted = 0, invalid = 0;
     for (const t of transactions) {
       if (!t.date || t.amount === undefined) { invalid++; continue; }
+      // keyword fallback when the AI couldn't classify the merchant
+      if (!t.category || t.category === 'أخرى') {
+        t.category = inferCategory(t.description) || t.category || 'أخرى';
+      }
       const key = crypto.createHash('sha1')
         .update(`${t.date}|${t.amount}|${(t.description || '').trim()}`)
         .digest('hex').slice(0, 16);

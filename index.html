@@ -2275,6 +2275,16 @@
           ? allTx.slice(0, 5).map(txRowHTML).join('')
           : '<p class="empty-state">لا توجد معاملات بعد.</p>';
         renderHeroExtras();
+
+        // once per session: auto-classify "أخرى" rows by merchant keywords
+        if (!sessionStorage.getItem('maali-recat-done') &&
+            allTx.some(t => !t.category || t.category === 'أخرى')) {
+          sessionStorage.setItem('maali-recat-done', '1');
+          apiFetch(`${API}/recategorize`, { method: 'POST' })
+            .then(r => r.json())
+            .then(d => { if (d.updated > 0) loadDash(); })
+            .catch(() => {});
+        }
       } catch(e) {
         document.getElementById('txList').innerHTML = '<p class="empty-state">تعذّر تحميل المعاملات</p>';
       }

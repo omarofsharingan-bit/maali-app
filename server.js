@@ -733,7 +733,9 @@ app.listen(PORT, () => {
 // awake as long as it's running. The GitHub Actions cron remains as backup:
 // it wakes the instance after deploys/restarts (a sleeping instance can't
 // ping itself).
-const SELF_URL = process.env.SELF_URL || 'https://maali-app.onrender.com';
+// RENDER_EXTERNAL_URL is set automatically by Render to this service's own
+// public URL, so the self-ping follows the service wherever it's deployed.
+const SELF_URL = process.env.SELF_URL || process.env.RENDER_EXTERNAL_URL || 'https://qurushak.onrender.com';
 if (process.env.RENDER || process.env.NODE_ENV === 'production') {
   setInterval(() => {
     axios.get(`${SELF_URL}/api/health`, { timeout: 30000 })

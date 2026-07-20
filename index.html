@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="قروشك" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%231fbb8a'/%3E%3Ctext x='50' y='64' font-size='48' text-anchor='middle' fill='white' font-family='Arial'%3E%D9%82%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" href="/icon-192.png" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
   <style>
@@ -57,8 +57,6 @@
       --r12: 12px;
       --r16: 16px;
       --r20: 20px;
-
-      --logo-cutout: #080807;
 
       /* aliases used by the tutorial overlay */
       --card: var(--bg2);
@@ -118,14 +116,8 @@
         var(--bg2);
       border-left: 0.5px solid var(--border);
     }
-    .auth-hero-logo { display: flex; align-items: center; gap: 12px; }
-    .auth-hero-logo .auth-logo-icon {
-      width: 46px; height: 46px; border-radius: 13px;
-      background: var(--teal-l); border: 0.5px solid rgba(31,187,138,0.25);
-      display: flex; align-items: center; justify-content: center; padding: 7px;
-      box-shadow: 0 0 22px var(--teal-g);
-    }
-    .auth-logo-text { font-size: 25px; font-weight: 800; color: var(--teal); letter-spacing: -0.3px; }
+    .auth-hero-logo { display: flex; align-items: center; }
+    .auth-hero-logo .logo-wordmark { height: 88px; }
 
     .auth-hero-title {
       font-size: 33px; font-weight: 700; line-height: 1.4;
@@ -155,12 +147,8 @@
       display: flex; flex-direction: column; justify-content: center;
       background: var(--bg);
     }
-    .auth-mini-logo { display: none; align-items: center; gap: 10px; justify-content: center; margin-bottom: 22px; }
-    .auth-mini-logo .auth-logo-icon {
-      width: 42px; height: 42px; border-radius: 12px;
-      background: var(--teal-l); border: 0.5px solid rgba(31,187,138,0.22);
-      display: flex; align-items: center; justify-content: center; padding: 6px;
-    }
+    .auth-mini-logo { display: none; justify-content: center; margin-bottom: 22px; }
+    .auth-mini-logo .logo-wordmark { height: 64px; }
     .auth-heading { font-size: 23px; font-weight: 800; margin-bottom: 6px; }
     .auth-subtitle { color: var(--text2); font-size: 13.5px; margin-bottom: 26px; line-height: 1.8; }
 
@@ -240,8 +228,6 @@
 
       --pink:   #c0436a;
       --pink-l: rgba(192,67,106,0.10);
-
-      --logo-cutout: #eae7de;
     }
 
     [data-theme="light"] body::before {
@@ -266,15 +252,8 @@
     [data-theme="light"] .card:hover {
       box-shadow: 0 8px 32px rgba(0,0,0,0.10);
     }
-    [data-theme="light"] .logo-icon {
-      background: rgba(18,138,96,0.12);
-      box-shadow: 0 0 16px rgba(18,138,96,0.18), 0 2px 8px rgba(0,0,0,0.08);
-    }
-    [data-theme="light"] .logo-text {
-      background: linear-gradient(120deg, var(--text) 30%, var(--teal) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    [data-theme="light"] .logo-wordmark {
+      filter: none;
     }
     [data-theme="light"] .nav {
       background: #dedad0;
@@ -384,34 +363,13 @@
       text-decoration: none;
     }
 
-    .logo-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: var(--teal-l);
-      border: 0.5px solid rgba(31,187,138,0.22);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 5px;
-      box-shadow: 0 0 18px var(--teal-g), 0 2px 8px rgba(0,0,0,0.3);
-      flex-shrink: 0;
-      transition: box-shadow 0.3s;
-    }
-
-    .logo-img {
-      width: 100%;
-      height: 100%;
-      color: var(--teal);
+    /* wordmark art is black-on-transparent: invert for the dark theme,
+       hue-rotate brings the green accents back around */
+    .logo-wordmark {
+      height: 42px;
+      width: auto;
       display: block;
-      transition: color 0.3s;
-    }
-
-    .logo-text {
-      background: linear-gradient(120deg, #fff 30%, var(--teal) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      filter: invert(1) hue-rotate(180deg);
     }
 
     /* ══ NAV ══ */
@@ -1583,16 +1541,7 @@
       <!-- Brand hero (hidden on small screens) -->
       <div class="auth-hero">
         <div class="auth-hero-logo">
-          <div class="auth-logo-icon">
-            <svg viewBox="0 0 100 118" fill="currentColor" style="width:100%;height:100%;color:var(--teal)" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22,10 L22,58 A28,28 0 0,1 78,58 L78,10" stroke="currentColor" stroke-width="16" fill="none" stroke-linecap="round"/>
-              <circle cx="22" cy="10" r="9"/><circle cx="78" cy="10" r="9"/>
-              <rect x="44" y="79" width="12" height="14"/><circle cx="50" cy="104" r="13"/>
-              <circle cx="40" cy="42" r="10"/><circle cx="40" cy="42" r="5.5" fill="var(--logo-cutout,#080807)"/>
-              <rect x="51" y="60" width="5" height="11" rx="1"/><rect x="58" y="49" width="5" height="22" rx="1"/><rect x="65" y="38" width="5" height="33" rx="1"/>
-            </svg>
-          </div>
-          <span class="auth-logo-text">قروشك</span>
+          <img class="logo-wordmark" src="/logo.png" alt="قروشك – Qurushak" />
         </div>
 
         <h1 class="auth-hero-title">افهم أموالك.<br><span>حقّق أهدافك.</span></h1>
@@ -1615,16 +1564,7 @@
       <!-- Form side -->
       <div class="auth-box">
       <div class="auth-mini-logo">
-        <div class="auth-logo-icon">
-          <svg viewBox="0 0 100 118" fill="currentColor" style="width:100%;height:100%;color:var(--teal)" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22,10 L22,58 A28,28 0 0,1 78,58 L78,10" stroke="currentColor" stroke-width="16" fill="none" stroke-linecap="round"/>
-            <circle cx="22" cy="10" r="9"/><circle cx="78" cy="10" r="9"/>
-            <rect x="44" y="79" width="12" height="14"/><circle cx="50" cy="104" r="13"/>
-            <circle cx="40" cy="42" r="10"/><circle cx="40" cy="42" r="5.5" fill="var(--logo-cutout,#080807)"/>
-            <rect x="51" y="60" width="5" height="11" rx="1"/><rect x="58" y="49" width="5" height="22" rx="1"/><rect x="65" y="38" width="5" height="33" rx="1"/>
-          </svg>
-        </div>
-        <span class="auth-logo-text">قروشك</span>
+        <img class="logo-wordmark" src="/logo.png" alt="قروشك – Qurushak" />
       </div>
       <h2 class="auth-heading">أهلاً بك 👋</h2>
       <p class="auth-subtitle">سجّل دخولك أو أنشئ حساباً جديداً لتبدأ</p>
@@ -1671,34 +1611,7 @@
   <!-- ══ HEADER ══ -->
   <header class="header">
     <div class="logo">
-      <div class="logo-icon">
-        <svg class="logo-img" viewBox="0 0 100 118" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-          <path d="M22,10 L22,58 A28,28 0 0,1 78,58 L78,10" stroke="currentColor" stroke-width="16" fill="none" stroke-linecap="round"/>
-          <circle cx="22" cy="10" r="9"/>
-          <circle cx="78" cy="10" r="9"/>
-          <rect x="44" y="79" width="12" height="14"/>
-          <circle cx="50" cy="104" r="13"/>
-          <line x1="50" y1="96"  x2="50" y2="101" stroke="var(--logo-cutout)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-          <line x1="50" y1="105" x2="50" y2="113" stroke="var(--logo-cutout)" stroke-width="2.2" stroke-linecap="round" fill="none"/>
-          <circle cx="40" cy="42" r="10"/>
-          <circle cx="40" cy="42" r="5.5" fill="var(--logo-cutout)"/>
-          <circle cx="37" cy="35" r="1.6"/>
-          <circle cx="44" cy="34" r="1.6"/>
-          <circle cx="47" cy="41" r="1.6"/>
-          <circle cx="44" cy="48" r="1.6"/>
-          <circle cx="37" cy="48" r="1.6"/>
-          <line x1="38" y1="35" x2="43" y2="34" stroke="currentColor" stroke-width="1.1" fill="none"/>
-          <line x1="45" y1="35" x2="46" y2="40" stroke="currentColor" stroke-width="1.1" fill="none"/>
-          <line x1="46" y1="42" x2="45" y2="47" stroke="currentColor" stroke-width="1.1" fill="none"/>
-          <line x1="43" y1="48" x2="38" y2="48" stroke="currentColor" stroke-width="1.1" fill="none"/>
-          <line x1="37" y1="47" x2="37" y2="36" stroke="currentColor" stroke-width="1.1" fill="none"/>
-          <rect x="51" y="60" width="5" height="11" rx="1"/>
-          <rect x="58" y="49" width="5" height="22" rx="1"/>
-          <rect x="65" y="38" width="5" height="33" rx="1"/>
-          <polyline points="56,53 61,61 71,37" fill="none" stroke="var(--logo-cutout)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <span class="logo-text">قروشك</span>
+      <img class="logo-wordmark" src="/logo.png" alt="قروشك – Qurushak" />
     </div>
     <nav class="nav">
       <button class="nav-btn active" data-page="dash" onclick="goTo('dash',this)">لوحة التحكم</button>

@@ -724,7 +724,7 @@ app.get('/api/health', async (req, res) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
 app.listen(PORT, () => {
-  console.log(`🚀 Maali running on http://localhost:${PORT}`);
+  console.log(`🚀 Qurushak (قروشك) running on http://localhost:${PORT}`);
 });
 
 // ── Keepalive: never let the Render free instance sleep ──

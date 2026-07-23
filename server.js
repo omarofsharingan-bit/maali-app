@@ -940,11 +940,19 @@ ${rawText.slice(0, 30000)}`;
 
 // ── Health check ─────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
+  // Reports only whether config is PRESENT — never the values themselves — so a
+  // failed deploy can be diagnosed without reading the Render dashboard.
+  const config = {
+    dbUrl:  process.env.DATABASE_URL   ? 'set' : 'MISSING',
+    gemini: GEMINI_API_KEY             ? 'set' : 'MISSING',
+    lean:   (LEAN_APP_ID && LEAN_CLIENT_SECRET) ? 'set' : 'MISSING',
+    leanApiBase: LEAN_API_BASE
+  };
   try {
     await pool.query('SELECT 1');
-    res.json({ ok: true, db: 'connected', dbUrl: process.env.DATABASE_URL ? 'set' : 'MISSING' });
+    res.json({ ok: true, db: 'connected', ...config });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message, dbUrl: process.env.DATABASE_URL ? 'set' : 'MISSING' });
+    res.status(500).json({ ok: false, error: err.message, ...config });
   }
 });
 

@@ -666,9 +666,18 @@ ${financialContext}
     res.write(text);
     res.end();
   } catch (error) {
-    console.error('Chat error:', error.response?.data || error.message);
-    if (!res.headersSent) res.status(500).json({ error: { message: 'حدث خطأ في الاتصال بالذكاء الاصطناعي' } });
-    else res.end();
+    // Surface the upstream reason (quota vs bad key vs outage). Google's message
+    // never contains the API key, so this is safe to return.
+    const upstream = error.response?.status || null;
+    const detail = error.response?.data?.error?.message || error.message;
+    console.error('Chat error:', upstream, detail);
+    if (!res.headersSent) {
+      res.status(500).json({ error: {
+        message: 'حدث خطأ في الاتصال بالذكاء الاصطناعي',
+        upstream,
+        detail: String(detail).slice(0, 300)
+      }});
+    } else res.end();
   }
 });
 

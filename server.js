@@ -23,7 +23,55 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'maali-secret-key-2026';
-const LEAN_APP_TOKEN = process.env.LEAN_APP_TOKEN || '0e9bb4e0-945d-4274-9fac-4f3dccec465f';
+
+// ── Lean (open banking) ───────────────────────────────────
+// Credentials come from env only — the client secret must never be committed.
+const LEAN_APP_ID         = process.env.LEAN_APP_ID;
+const LEAN_CLIENT_SECRET  = process.env.LEAN_CLIENT_SECRET;
+const LEAN_WEBHOOK_SECRET = process.env.LEAN_WEBHOOK_SECRET;
+const LEAN_SANDBOX        = process.env.LEAN_SANDBOX !== 'false';
+// Saudi-region hosts. The generic (UAE) hosts reject KSA credentials with
+// invalid_client, so region is part of the config, not an afterthought.
+const LEAN_AUTH_BASE = process.env.LEAN_AUTH_BASE ||
+  (LEAN_SANDBOX ? 'https://auth.sandbox.sa.leantech.me' : 'https://auth.sa.leantech.me');
+const LEAN_API_BASE  = process.env.LEAN_API_BASE ||
+  (LEAN_SANDBOX ? 'https://sandbox.sa.leantech.me' : 'https://sa.leantech.me');
+if (!LEAN_APP_ID || !LEAN_CLIENT_SECRET) console.error('⚠️  LEAN_APP_ID / LEAN_CLIENT_SECRET not set — bank linking disabled');
+
+// Lean issues short-lived JWTs (~1h). Cache per scope so we are not minting one per request.
+const leanTokenCache = new Map();
+async function leanToken(scope = 'api') {
+  // The LinkSDK rejects any token with under 10 minutes left, so keep a wide
+  // margin — serving a nearly-expired token makes the widget fail silently.
+  const hit = leanTokenCache.get(scope);
+  if (hit && hit.expiresAt > Date.now() + 15 * 60000) return hit.token;
+  const body = new URLSearchParams({
+    client_id: LEAN_APP_ID,
+    client_secret: LEAN_CLIENT_SECRET,
+    grant_type: 'client_credentials',
+    scope
+  });
+  const res = await axios.post(`${LEAN_AUTH_BASE}/oauth2/token`, body.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    timeout: 20000
+  });
+  const token = res.data.access_token;
+  leanTokenCache.set(scope, {
+    token,
+    expiresAt: Date.now() + ((res.data.expires_in || 3599) * 1000)
+  });
+  return token;
+}
+
+async function leanGet(pathname, params, scope = 'api') {
+  const token = await leanToken(scope);
+  const res = await axios.get(`${LEAN_API_BASE}${pathname}`, {
+    params,
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 30000
+  });
+  return res.data;
+}
 // Read from env var ONLY — never hardcode (Google auto-disables leaked keys)
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) console.error('⚠️  GEMINI_API_KEY env var is not set!');
@@ -74,7 +122,8 @@ async function groqChat(prompt, maxTokens = 4096, opts = {}) {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// Keep the raw body around so Lean webhook signatures can be verified against it.
+app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.static(path.join(__dirname)));
 
 // ── Database ──────────────────────────────────────────────
@@ -100,6 +149,10 @@ async function initDB() {
     account_id TEXT,
     connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`);
+
+  // Lean v2 keys bank data by entity (the connection), not by customer.
+  await pool.query(`ALTER TABLE bank_connections ADD COLUMN IF NOT EXISTS entity_id TEXT`);
+  await pool.query(`ALTER TABLE bank_connections ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP`);
 
   await pool.query(`CREATE TABLE IF NOT EXISTS transactions (
     id SERIAL PRIMARY KEY,
@@ -187,84 +240,195 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// ── Bank Connection Routes ────────────────────────────────
-app.post('/api/bank/customer', authenticateToken, async (req, res) => {
-  try {
-    const existing = await pool.query('SELECT lean_customer_id FROM bank_connections WHERE user_id = $1', [req.userId]);
-    if (existing.rows[0]) return res.json({ customer_id: existing.rows[0].lean_customer_id });
-    const response = await axios.post(
-      'https://sandbox.leantech.me/customers/v1',
-      { app_user_id: String(req.userId) },
-      { headers: { 'lean-app-token': LEAN_APP_TOKEN } }
-    );
-    const customerId = response.data.customer_id;
-    await pool.query(
-      'INSERT INTO bank_connections (user_id, lean_customer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.userId, customerId]
-    );
-    res.json({ customer_id: customerId });
-  } catch (error) {
-    console.error('Lean customer error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to create Lean customer' });
-  }
-});
+// ── Bank Connection Routes (Lean v2) ──────────────────────
+// Flow: create a Lean customer for the user → hand the browser a customer-scoped
+// token → LinkSDK collects the bank consent → Lean webhooks us the entity_id →
+// we pull accounts + transactions from /data/v2 and store them.
 
-app.post('/api/bank/connect', authenticateToken, async (req, res) => {
-  const { authCode } = req.body;
-  if (!authCode) return res.status(400).json({ error: 'Authorization code required' });
-  try {
-    const response = await axios.post(
-      'https://sandbox.leantech.me/auth/v1/authorize',
-      { authorization_code: authCode },
-      { headers: { 'lean-app-token': LEAN_APP_TOKEN } }
-    );
-    const customerId = response.data.customer_id;
-    const bankName = response.data.bank_identifier || 'Bank';
-    await pool.query(
-      'INSERT INTO bank_connections (user_id, lean_customer_id, bank_name) VALUES ($1, $2, $3)',
-      [req.userId, customerId, bankName]
-    );
-    res.json({ success: true, customerId, bankName });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to connect bank account' });
-  }
-});
+async function getOrCreateLeanCustomer(userId) {
+  const existing = await pool.query(
+    'SELECT lean_customer_id, entity_id FROM bank_connections WHERE user_id = $1',
+    [userId]
+  );
+  if (existing.rows[0]) return existing.rows[0];
 
-app.get('/api/bank/accounts', authenticateToken, async (req, res) => {
+  const token = await leanToken('api');
+  const response = await axios.post(
+    `${LEAN_API_BASE}/customers/v1`,
+    { app_user_id: String(userId) },
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 20000 }
+  );
+  const customerId = response.data.customer_id || response.data.id;
+  await pool.query(
+    'INSERT INTO bank_connections (user_id, lean_customer_id) VALUES ($1, $2) ON CONFLICT (lean_customer_id) DO NOTHING',
+    [userId, customerId]
+  );
+  return { lean_customer_id: customerId, entity_id: null };
+}
+
+// Everything the LinkSDK needs to open the bank-consent dialog.
+app.post('/api/bank/link-token', authenticateToken, async (req, res) => {
+  if (!LEAN_APP_ID || !LEAN_CLIENT_SECRET) {
+    return res.status(503).json({ error: 'ربط البنك غير مفعّل حالياً' });
+  }
   try {
-    const conn = await pool.query('SELECT lean_customer_id FROM bank_connections WHERE user_id = $1', [req.userId]);
-    if (!conn.rows[0]) return res.json({ accounts: [] });
-    const response = await axios.get('https://sandbox.leantech.me/data/v1/accounts', {
-      headers: { 'lean-app-token': LEAN_APP_TOKEN, 'customer-id': conn.rows[0].lean_customer_id }
+    const conn = await getOrCreateLeanCustomer(req.userId);
+    const customerId = conn.lean_customer_id;
+    // The SDK needs a token scoped to this specific customer, not the api scope.
+    const accessToken = await leanToken(`customer.${customerId}`);
+    res.json({
+      app_token: LEAN_APP_ID,
+      customer_id: customerId,
+      access_token: accessToken,
+      sandbox: LEAN_SANDBOX
     });
-    res.json({ accounts: response.data.accounts || [] });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch accounts' });
+    console.error('Lean link-token error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'تعذّر بدء ربط البنك' });
   }
 });
 
-app.post('/api/bank/sync-transactions', authenticateToken, async (req, res) => {
+app.get('/api/bank/status', authenticateToken, async (req, res) => {
   try {
-    const conn = await pool.query('SELECT lean_customer_id FROM bank_connections WHERE user_id = $1', [req.userId]);
-    if (!conn.rows[0]) return res.status(404).json({ error: 'No bank connected' });
-    const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const to   = new Date().toISOString().split('T')[0];
-    const response = await axios.get(
-      `https://sandbox.leantech.me/data/v1/transactions?from=${from}&to=${to}`,
-      { headers: { 'lean-app-token': LEAN_APP_TOKEN, 'customer-id': conn.rows[0].lean_customer_id } }
+    const r = await pool.query(
+      'SELECT lean_customer_id, entity_id, bank_name, last_synced_at FROM bank_connections WHERE user_id = $1',
+      [req.userId]
     );
-    const txs = response.data.transactions || [];
-    let inserted = 0;
+    const row = r.rows[0];
+    res.json({
+      connected: !!(row && row.entity_id),
+      bankName: row?.bank_name || null,
+      lastSyncedAt: row?.last_synced_at || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Lean notifies us here when a connection is made and when its data is ready.
+app.post('/api/bank/webhook', async (req, res) => {
+  try {
+    if (LEAN_WEBHOOK_SECRET && req.rawBody) {
+      const sent = req.headers['lean-signature'] || req.headers['x-lean-signature'] || '';
+      const expected = crypto.createHmac('sha256', LEAN_WEBHOOK_SECRET).update(req.rawBody).digest('hex');
+      // Signature header naming varies by Lean version — log a mismatch rather than
+      // dropping the event, so sandbox testing is not silently broken.
+      if (sent && sent.replace(/^sha256=/, '') !== expected) {
+        console.warn('[lean webhook] signature mismatch, processing anyway (sandbox)');
+      }
+    }
+
+    const evt = req.body || {};
+    const payload = evt.payload || evt.data || evt;
+    const entityId   = payload.entity_id   || payload.entityId;
+    const customerId = payload.customer_id || payload.customerId;
+    console.log(`[lean webhook] ${evt.type || evt.event || 'event'} entity=${entityId} status=${payload.status || ''}`);
+
+    if (entityId && customerId) {
+      await pool.query(
+        'UPDATE bank_connections SET entity_id = $1, bank_name = COALESCE($2, bank_name) WHERE lean_customer_id = $3',
+        [entityId, payload.bank_identifier || payload.bank?.name || null, customerId]
+      );
+      const owner = await pool.query('SELECT user_id FROM bank_connections WHERE lean_customer_id = $1', [customerId]);
+      const userId = owner.rows[0]?.user_id;
+      // Data is populated asynchronously; only pull once Lean says it is ready.
+      if (userId && String(payload.status || '').toUpperCase() === 'FINISHED') {
+        syncLeanTransactions(userId).catch(e => console.error('[lean webhook] sync failed:', e.message));
+      }
+    }
+    res.json({ received: true });
+  } catch (err) {
+    console.error('[lean webhook] error:', err.message);
+    res.json({ received: true }); // never make Lean retry on our bug
+  }
+});
+
+// Pull accounts + transactions for a user and upsert them into `transactions`.
+async function syncLeanTransactions(userId) {
+  const conn = await pool.query(
+    'SELECT lean_customer_id, entity_id FROM bank_connections WHERE user_id = $1',
+    [userId]
+  );
+  const row = conn.rows[0];
+  if (!row) return { synced: 0, total: 0, pending: true };
+
+  // Webhooks can't reach a dev machine, so fall back to asking Lean which
+  // entities this customer has connected.
+  let entityId = row.entity_id;
+  if (!entityId) {
+    try {
+      const entities = await leanGet(`/customers/v1/${row.lean_customer_id}/entities`);
+      const list = Array.isArray(entities) ? entities : (entities.entities || []);
+      const found = list[0];
+      entityId = found?.entity_id || found?.id || null;
+      if (entityId) {
+        await pool.query(
+          'UPDATE bank_connections SET entity_id = $1, bank_name = COALESCE($2, bank_name) WHERE user_id = $3',
+          [entityId, found?.bank_identifier || found?.bank_details?.name || null, userId]
+        );
+      }
+    } catch (e) {
+      console.error('[lean sync] entity lookup failed:', e.response?.data || e.message);
+    }
+  }
+  if (!entityId) return { synced: 0, total: 0, pending: true };
+
+  const accountsRes = await leanGet('/data/v2/accounts', { entity_id: entityId });
+  const accounts = accountsRes.accounts || accountsRes.data?.accounts || accountsRes.payload?.accounts || [];
+
+  const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const to   = new Date().toISOString().split('T')[0];
+
+  let inserted = 0, total = 0;
+  for (const acc of accounts) {
+    const accountId = acc.account_id || acc.id;
+    if (!accountId) continue;
+    let txRes;
+    try {
+      txRes = await leanGet('/data/v2/transactions', {
+        entity_id: entityId,
+        account_id: accountId,
+        from_date: from,
+        to_date: to
+      });
+    } catch (e) {
+      console.error(`[lean sync] transactions failed for account ${accountId}:`, e.response?.data || e.message);
+      continue;
+    }
+    const txs = txRes.transactions || txRes.data?.transactions || txRes.payload?.transactions || [];
+    total += txs.length;
     for (const tx of txs) {
+      const txId   = tx.lean_transaction_id || tx.transaction_id || tx.id;
+      const rawAmt = tx.amount ?? tx.value ?? 0;
+      // Lean marks direction separately; a CREDIT is money in, DEBIT money out.
+      const dir    = String(tx.credit_debit_indicator || tx.type || '').toUpperCase();
+      const amount = dir.includes('DEBIT') ? -Math.abs(Number(rawAmt)) : Number(rawAmt);
+      const date   = (tx.booked_date || tx.value_date || tx.timestamp || tx.date || '').slice(0, 10);
+      if (!txId || !date) continue;
+      const desc = tx.description || tx.narrative || 'معاملة بنكية';
       const r = await pool.query(
-        'INSERT INTO transactions (user_id, transaction_id, amount, description, category, transaction_date) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (user_id, transaction_id) DO NOTHING',
-        [req.userId, tx.id, tx.amount, tx.description || 'Transaction', tx.category || 'Other', tx.date]
+        `INSERT INTO transactions (user_id, transaction_id, amount, description, category, transaction_date)
+         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (user_id, transaction_id) DO NOTHING`,
+        [userId, txId, amount, desc, inferCategory(desc) || 'أخرى', date]
       );
       if (r.rowCount > 0) inserted++;
     }
-    res.json({ success: true, synced: inserted, total: txs.length });
+  }
+  await pool.query('UPDATE bank_connections SET last_synced_at = NOW() WHERE user_id = $1', [userId]);
+  console.log(`[lean sync] user ${userId}: ${inserted} new of ${total}`);
+  return { synced: inserted, total, accounts: accounts.length };
+}
+
+app.post('/api/bank/sync', authenticateToken, async (req, res) => {
+  try {
+    const result = await syncLeanTransactions(req.userId);
+    if (result.pending) {
+      return res.json({ success: false, pending: true, message: 'جاري تجهيز بيانات البنك…' });
+    }
+    res.json({ success: true, ...result });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to sync transactions' });
+    console.error('Lean sync error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'تعذّر جلب المعاملات من البنك' });
   }
 });
 

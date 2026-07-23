@@ -1623,6 +1623,7 @@
       <button class="icon-btn" id="themeToggle" title="تبديل المظهر" onclick="toggleTheme()">
         <i class="ti ti-sun" id="themeIcon"></i>
       </button>
+      <button class="icon-btn" id="bankBtn" title="اربط حسابك البنكي" onclick="connectBank()" style="color:var(--teal)"><i class="ti ti-building-bank"></i></button>
       <button class="icon-btn" title="استيراد ملف" onclick="openImport()" style="color:var(--teal)"><i class="ti ti-upload"></i></button>
       <button class="icon-btn" title="تحديث" onclick="loadDash()"><i class="ti ti-refresh"></i></button>
       <button class="icon-btn" title="المساعد الذكي" onclick="openChat('')"><i class="ti ti-message-chatbot"></i></button>
@@ -2675,6 +2676,63 @@
       loadDash();
       setTimeout(() => openImport(), 400);
     }
+    /* ── BANK LINKING (Lean) ── */
+    // The SDK is loaded async from Lean's CDN, so it may not be ready on first click.
+    function waitForLean(ms = 8000) {
+      const started = Date.now();
+      return new Promise(resolve => {
+        (function poll() {
+          if (typeof Lean !== 'undefined' && typeof Lean.connect === 'function') return resolve(true);
+          if (Date.now() - started > ms) return resolve(false);
+          setTimeout(poll, 150);
+        })();
+      });
+    }
+
+    async function connectBank() {
+      const btn = document.getElementById('bankBtn');
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="ti ti-loader-2"></i>';
+      try {
+        const r = await apiFetch(`${API}/bank/link-token`, { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) return alert('❌ ' + (d.error || 'تعذّر بدء ربط البنك'));
+        if (!(await waitForLean())) return alert('❌ لم تُحمّل أداة الربط، تحقق من اتصالك وحدّث الصفحة');
+        Lean.connect({
+          app_token: d.app_token,
+          customer_id: d.customer_id,
+          access_token: d.access_token,
+          permissions: ['identity', 'accounts', 'transactions', 'balance'],
+          sandbox: d.sandbox,
+          callback: resp => {
+            if (resp.status === 'SUCCESS') syncBank();
+            else if (resp.status === 'ERROR') alert('❌ فشل ربط البنك: ' + (resp.message || ''));
+          }
+        });
+      } catch (e) {
+        alert('❌ تعذّر الاتصال بالخادم');
+      } finally {
+        btn.innerHTML = original;
+      }
+    }
+
+    // Lean populates bank data asynchronously, so poll until the webhook lands.
+    async function syncBank(attempt = 0) {
+      try {
+        const r = await apiFetch(`${API}/bank/sync`, { method: 'POST' });
+        const d = await r.json();
+        if (d.pending && attempt < 10) return setTimeout(() => syncBank(attempt + 1), 3000);
+        if (d.success) {
+          alert(`✅ تم ربط البنك وجلب ${d.synced} معاملة`);
+          loadDash();
+        } else {
+          alert('⏳ تم الربط وبيانات البنك قيد التجهيز — اضغط تحديث بعد قليل');
+        }
+      } catch (e) {
+        alert('❌ تعذّر جلب المعاملات من البنك');
+      }
+    }
+
     /* ── THEME TOGGLE ── */
     function toggleTheme() {
       const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -2859,7 +2917,9 @@
     }
 
   </script>
-  <script src="/lean-sdk.js" async></script>
+  <!-- Lean LinkSDK — must be the Saudi (sa) build; the ae/global build silently
+       fails to open the widget for KSA-region apps. -->
+  <script src="https://cdn.leantech.me/link/loader/prod/sa/latest/lean-link-loader.min.js" async></script>
 
   <!-- ══ IMPORT MODAL ══ -->
   <div class="import-overlay" id="importOverlay" onclick="if(event.target===this)closeImport()">

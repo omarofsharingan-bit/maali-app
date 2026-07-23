@@ -81,14 +81,17 @@ async function groqChat(prompt, maxTokens = 4096, opts = {}) {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
   let lastErr;
   for (const model of models) {
+    // thinkingConfig is only meaningful on the 2.5 family, and Google rejects the
+    // whole request with a 400 where it is not supported. Drop it and retry.
+    let sendThinking = model.includes('2.5');
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const generationConfig = {
           // gemini-2.0 models cap output at 8192 tokens; asking for more is a 400
           maxOutputTokens: model.includes('2.0') ? Math.min(maxTokens, 8192) : maxTokens,
-          temperature: opts.temperature !== undefined ? opts.temperature : 0.2,
-          thinkingConfig: { thinkingBudget: 0 } // disable thinking mode for 2.5 models
+          temperature: opts.temperature !== undefined ? opts.temperature : 0.2
         };
+        if (sendThinking) generationConfig.thinkingConfig = { thinkingBudget: 0 };
         if (opts.responseSchema) {
           generationConfig.responseMimeType = 'application/json';
           generationConfig.responseSchema = opts.responseSchema;
@@ -109,6 +112,7 @@ async function groqChat(prompt, maxTokens = 4096, opts = {}) {
       } catch (err) {
         lastErr = err;
         const code = err.response?.status;
+        if (code === 400 && sendThinking) { sendThinking = false; continue; }
         if (code === 503 || code === 429) {
           await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
           continue;
@@ -620,16 +624,20 @@ ${financialContext}
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    // Each model is tried with thinkingConfig and then without it, since Google
+    // 400s the whole request where that field is not supported.
+    const attempts = [
+      ['gemini-2.5-flash', true], ['gemini-2.5-flash', false],
+      ['gemini-2.0-flash', false]
+    ];
     let streamed = false;
-    for (const model of models) {
+    for (const [model, withThinking] of attempts) {
       try {
+        const generationConfig = { maxOutputTokens: 1024, temperature: 0.2 };
+        if (withThinking) generationConfig.thinkingConfig = { thinkingBudget: 0 };
         const gRes = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
-          {
-            contents: [{ parts: [{ text: fullPrompt }] }],
-            generationConfig: { maxOutputTokens: 1024, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } }
-          },
+          { contents: [{ parts: [{ text: fullPrompt }] }], generationConfig },
           { headers: { 'Content-Type': 'application/json' }, timeout: 60000, responseType: 'stream' }
         );
         await new Promise((resolve, reject) => {

@@ -249,12 +249,17 @@ const authenticateToken = (req, res, next) => {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const normalizeEmail = e => String(e || '').trim().toLowerCase();
 
+// Block throwaway / 10-minute burner inboxes (mailinator, temp-mail, …).
+const DISPOSABLE_DOMAINS = new Set(require('disposable-email-domains'));
+const isDisposableEmail = email => DISPOSABLE_DOMAINS.has(email.split('@')[1] || '');
+
 app.post('/api/auth/signup', async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const password = req.body.password || '';
   const fullName = String(req.body.fullName || '').trim();
   if (!email || !password || !fullName) return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'البريد الإلكتروني غير صالح' });
+  if (isDisposableEmail(email)) return res.status(400).json({ error: 'يُرجى استخدام بريد إلكتروني حقيقي — البُرد المؤقتة غير مسموحة' });
   if (password.length < 8) return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' });
   if (fullName.length > 120) return res.status(400).json({ error: 'الاسم طويل جداً' });
   try {

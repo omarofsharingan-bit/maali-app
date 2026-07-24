@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -124,8 +126,41 @@ async function groqChat(prompt, maxTokens = 4096, opts = {}) {
   throw lastErr;
 }
 
-// Middleware
-app.use(cors());
+// ── Security middleware ───────────────────────────────────
+// helmet sets protective headers (HSTS, nosniff, no-framing, referrer policy).
+// CSP and COEP are left off because the app loads fonts, icons and the Lean
+// widget from other origins; a strict policy would break them, and tightening
+// CSP safely is a follow-up on its own.
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// Same-origin app (the frontend is served by this server), so lock CORS to the
+// known hosts instead of echoing any origin. Same-origin requests send no Origin
+// header and are unaffected; this only blocks other websites' scripts.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
+  'https://qurushak.onrender.com,https://maali-app.onrender.com,https://qurushak.com,https://www.qurushak.com')
+  .split(',').map(s => s.trim());
+app.use(cors({
+  origin(origin, cb) {
+    // Non-browser clients (curl, health checks) and same-origin requests have no origin.
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  }
+}));
+
+// Throttle brute-force. Auth is strict; the rest of the API is generous so
+// normal dashboard use is never affected.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, max: 20,
+  standardHeaders: true, legacyHeaders: false,
+  message: { error: 'محاولات كثيرة جداً، يرجى المحاولة بعد قليل' }
+});
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 120,
+  standardHeaders: true, legacyHeaders: false
+});
+app.use('/api/', apiLimiter);
+app.use(['/api/auth/login', '/api/auth/signup'], authLimiter);
+
 // Keep the raw body around so Lean webhook signatures can be verified against it.
 app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.static(path.join(__dirname)));
@@ -210,10 +245,24 @@ const authenticateToken = (req, res, next) => {
 };
 
 // ── Auth Routes ───────────────────────────────────────────
+// Reject anything that is not plausibly an email (rejects the likes of "123@123").
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const normalizeEmail = e => String(e || '').trim().toLowerCase();
+
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, fullName } = req.body;
-  if (!email || !password || !fullName) return res.status(400).json({ error: 'All fields required' });
+  const email = normalizeEmail(req.body.email);
+  const password = req.body.password || '';
+  const fullName = String(req.body.fullName || '').trim();
+  if (!email || !password || !fullName) return res.status(400).json({ error: 'جميع الحقول مطلوبة' });
+  if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'البريد الإلكتروني غير صالح' });
+  if (password.length < 8) return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' });
+  if (fullName.length > 120) return res.status(400).json({ error: 'الاسم طويل جداً' });
   try {
+    // Block case-variant duplicates (Omar@x.com vs omar@x.com) that the DB's
+    // case-sensitive UNIQUE would otherwise allow.
+    const dup = await pool.query('SELECT 1 FROM users WHERE LOWER(email) = $1', [email]);
+    if (dup.rows[0]) return res.status(400).json({ error: 'البريد الإلكتروني مستخدم مسبقاً' });
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       'INSERT INTO users (email, password, full_name) VALUES ($1, $2, $3) RETURNING id',
@@ -223,20 +272,23 @@ app.post('/api/auth/signup', async (req, res) => {
     const token = jwt.sign({ id, email }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: { id, email, fullName } });
   } catch (error) {
-    if (error.code === '23505') return res.status(400).json({ error: 'Email already exists' });
+    if (error.code === '23505') return res.status(400).json({ error: 'البريد الإلكتروني مستخدم مسبقاً' });
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const email = normalizeEmail(req.body.email);
+  const password = req.body.password || '';
+  if (!email || !password) return res.status(400).json({ error: 'البريد وكلمة المرور مطلوبان' });
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    // Case-insensitive lookup so accounts created before email normalization
+    // (any casing) still log in.
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email]);
     const user = result.rows[0];
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!validPassword) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ token, user: { id: user.id, email: user.email, fullName: user.full_name } });
   } catch (error) {

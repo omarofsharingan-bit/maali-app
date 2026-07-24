@@ -1946,7 +1946,8 @@
       const email = document.getElementById('signupEmail').value.trim();
       const pass  = document.getElementById('signupPassword').value;
       if (!name || !email || !pass) return showAuthError('يرجى ملء جميع الحقول');
-      if (pass.length < 6) return showAuthError('كلمة المرور 6 أحرف على الأقل');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showAuthError('البريد الإلكتروني غير صالح');
+      if (pass.length < 8) return showAuthError('كلمة المرور 8 أحرف على الأقل');
       const btn = document.getElementById('signupBtn');
       btn.disabled = true; btn.textContent = 'جارٍ الإنشاء...';
       try {

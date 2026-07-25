@@ -1156,6 +1156,16 @@ app.get('/api/health', async (req, res) => {
       config.egress = { country: geo.data.country, region: geo.data.region, city: geo.data.city };
     } catch (e) { config.egress = { error: e.message }; }
   }
+  // ?models=1 lists the Groq models this account can actually use, so the model
+  // list is chosen from what exists rather than from memory.
+  if (req.query.models === '1' && GROQ_API_KEY) {
+    try {
+      const r = await axios.get('https://api.groq.com/openai/v1/models', {
+        headers: { Authorization: `Bearer ${GROQ_API_KEY}` }, timeout: 15000
+      });
+      config.groqModels = (r.data.data || []).map(m => m.id).sort();
+    } catch (e) { config.groqModels = { error: e.response?.status || e.message }; }
+  }
   // ?probe=1 checks which AI providers this region can reach at all. An auth
   // error means reachable; a geo/location error means blocked here.
   if (req.query.probe === '1') {

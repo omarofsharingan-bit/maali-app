@@ -191,14 +191,14 @@ async function aiComplete(prompt, maxTokens = 4096, opts = {}) {
 
 // Stream Groq's answer straight into an open response. Returns true if any text
 // was written, so the caller knows whether to try something else.
-async function streamGroqInto(res, prompt, maxTokens = 1024) {
+async function streamGroqInto(res, prompt, maxTokens = 1024, temperature = 0.2) {
   if (!GROQ_API_KEY) return false;
   for (const model of GROQ_MODELS) {
     try {
       const gRes = await axios.post('https://api.groq.com/openai/v1/chat/completions',
         {
           model, messages: [{ role: 'user', content: prompt }],
-          max_tokens: maxTokens, temperature: 0.2, stream: true
+          max_tokens: maxTokens, temperature, stream: true
         },
         {
           headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
@@ -790,6 +790,12 @@ ${financialContext}
 
 سؤال المستخدم: ${userMessage}`;
 
+    // Factual answers want near-zero temperature, but the suggestions panel asks
+    // the same question over the same data — at 0.2 it returned the same three
+    // tips forever, which made its refresh button look broken. Let that caller
+    // opt into a high temperature.
+    const temperature = req.body.variety ? 0.95 : 0.2;
+
     // Stream the answer so text appears immediately
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
@@ -804,7 +810,7 @@ ${financialContext}
     let streamed = false;
     for (const [model, withThinking] of attempts) {
       try {
-        const generationConfig = { maxOutputTokens: 1024, temperature: 0.2 };
+        const generationConfig = { maxOutputTokens: 1024, temperature };
         if (withThinking) generationConfig.thinkingConfig = { thinkingBudget: 0 };
         const gRes = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`,
@@ -842,10 +848,10 @@ ${financialContext}
 
     // Gemini streaming failed (or is geo-blocked here) → stream from Groq so the
     // answer still appears progressively rather than after a long pause.
-    if (await streamGroqInto(res, fullPrompt, 1024)) return res.end();
+    if (await streamGroqInto(res, fullPrompt, 1024, temperature)) return res.end();
 
     // Streaming failed entirely → non-streaming fallback (still plain text)
-    const text = await aiComplete(fullPrompt, 1024);
+    const text = await aiComplete(fullPrompt, 1024, { temperature });
     res.write(text);
     res.end();
   } catch (error) {

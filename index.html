@@ -2233,6 +2233,17 @@
     }
 
     /* ── AI IMPROVEMENT SUGGESTIONS ── */
+    // Asking the same question over the same data returns the same three tips, so
+    // each refresh rotates the angle and rules out what was already shown.
+    const TIP_ANGLES = [
+      'ركّز على أكبر فئتين في الإنفاق وكيف أقلّصهما',
+      'ركّز على المصاريف الصغيرة المتكررة والاشتراكات',
+      'ركّز على تسريع تحقيق أهدافي المالية',
+      'ركّز على رفع نسبة الادخار من الدخل',
+      'ركّز على مصاريف يمكن إلغاؤها أو تأجيلها هذا الشهر',
+      'ركّز على ما تغيّر في إنفاقي بين الأشهر'
+    ];
+
     async function loadAiTips(force = false) {
       const el = document.getElementById('aiTips');
       if (!allTx.length) {
@@ -2245,11 +2256,22 @@
         if (cached) { renderAiTips(cached); return; }
       }
       el.innerHTML = '<div class="loading"><div class="spinner"></div><div style="font-size:11px;margin-top:6px;color:var(--text2)">يحلل الذكاء الاصطناعي بياناتك...</div></div>';
+
+      const angleIdx = Number(sessionStorage.getItem('maali-ai-tips-angle') || 0) % TIP_ANGLES.length;
+      sessionStorage.setItem('maali-ai-tips-angle', String(angleIdx + 1));
+      const previous = force ? (sessionStorage.getItem(cacheKey) || '') : '';
+      let message = 'حلل بياناتي المالية وأعطني 3 اقتراحات قصيرة ومحددة لتحسين وضعي المالي بناءً على أرقامي الفعلية (اذكر الأرقام). '
+        + TIP_ANGLES[angleIdx]
+        + '. أجب بـ3 أسطر فقط، كل سطر اقتراح واحد يبدأ بـ"-"، بدون أي مقدمة أو خاتمة.';
+      if (previous.trim()) {
+        message += '\n\nاقتراحات سبق عرضها — لا تُعدها واقترح غيرها:\n' + previous.trim();
+      }
+
       try {
         const r = await apiFetch(`${API}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'حلل بياناتي المالية وأعطني 3 اقتراحات قصيرة ومحددة لتحسين وضعي المالي بناءً على أرقامي الفعلية (اذكر الأرقام). أجب بـ3 أسطر فقط، كل سطر اقتراح واحد يبدأ بـ"-"، بدون أي مقدمة أو خاتمة.' })
+          body: JSON.stringify({ message, variety: force })
         });
         if (!r.ok) throw new Error('server');
         const text = await r.text();

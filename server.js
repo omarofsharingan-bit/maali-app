@@ -1022,6 +1022,15 @@ app.get('/api/health', async (req, res) => {
     lean:   (LEAN_APP_ID && LEAN_CLIENT_SECRET) ? 'set' : 'MISSING',
     leanApiBase: LEAN_API_BASE
   };
+  // ?diag=1 reports the region this instance egresses from. Gemini geo-blocks
+  // some regions, and Render cannot change a service's region after creation,
+  // so this is the difference that decides whether AI can work at all.
+  if (req.query.diag === '1') {
+    try {
+      const geo = await axios.get('https://ipinfo.io/json', { timeout: 8000 });
+      config.egress = { country: geo.data.country, region: geo.data.region, city: geo.data.city };
+    } catch (e) { config.egress = { error: e.message }; }
+  }
   try {
     await pool.query('SELECT 1');
     res.json({ ok: true, db: 'connected', ...config });

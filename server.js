@@ -78,8 +78,17 @@ async function leanGet(pathname, params, scope = 'api') {
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 if (!GEMINI_API_KEY) console.error('⚠️  GEMINI_API_KEY env var is not set!');
 
+// Groq is the fallback provider. Two reasons it exists: Gemini's free tier
+// refuses requests from some regions entirely (it 400s with "User location is
+// not supported" from the EU), and its free quota is small enough that a busy
+// day can exhaust it. Groq is reachable from those regions and has its own quota.
+const GROQ_API_KEY = process.env.GROQ_API_KEY && !/YOUR_.*_HERE/.test(process.env.GROQ_API_KEY)
+  ? process.env.GROQ_API_KEY : null;
+const GROQ_MODELS = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
 // Helper: call Gemini with retry + model fallback for 503 overload
-async function groqChat(prompt, maxTokens = 4096, opts = {}) {
+async function geminiComplete(prompt, maxTokens = 4096, opts = {}) {
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
   let lastErr;
   for (const model of models) {
@@ -124,6 +133,95 @@ async function groqChat(prompt, maxTokens = 4096, opts = {}) {
     }
   }
   throw lastErr;
+}
+
+// Groq speaks the OpenAI chat-completions shape.
+async function groqComplete(prompt, maxTokens = 4096, opts = {}) {
+  if (!GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
+  let lastErr;
+  for (const model of GROQ_MODELS) {
+    try {
+      const body = {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: Math.min(maxTokens, 32768),
+        temperature: opts.temperature !== undefined ? opts.temperature : 0.2
+      };
+      // Groq has JSON mode but no schema enforcement; the caller's parser is
+      // already lenient, so ask for valid JSON and let it do the shaping.
+      if (opts.responseSchema) body.response_format = { type: 'json_object' };
+      const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', body, {
+        headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+        timeout: 60000
+      });
+      const text = res.data.choices?.[0]?.message?.content?.trim();
+      if (text) return text;
+      throw new Error('Empty response');
+    } catch (err) {
+      lastErr = err;
+      console.error(`[ai] groq ${model} failed:`,
+        err.response?.data?.error?.message || err.response?.status || err.message);
+    }
+  }
+  throw lastErr;
+}
+
+// Single entry point: Gemini first, Groq if Gemini cannot serve this request.
+async function aiComplete(prompt, maxTokens = 4096, opts = {}) {
+  try {
+    return await geminiComplete(prompt, maxTokens, opts);
+  } catch (err) {
+    if (!GROQ_API_KEY) throw err;
+    console.warn('[ai] gemini unavailable, falling back to groq:',
+      err.response?.data?.error?.message || err.message);
+    return await groqComplete(prompt, maxTokens, opts);
+  }
+}
+
+// Stream Groq's answer straight into an open response. Returns true if any text
+// was written, so the caller knows whether to try something else.
+async function streamGroqInto(res, prompt, maxTokens = 1024) {
+  if (!GROQ_API_KEY) return false;
+  for (const model of GROQ_MODELS) {
+    try {
+      const gRes = await axios.post('https://api.groq.com/openai/v1/chat/completions',
+        {
+          model, messages: [{ role: 'user', content: prompt }],
+          max_tokens: maxTokens, temperature: 0.2, stream: true
+        },
+        {
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+          timeout: 60000, responseType: 'stream'
+        }
+      );
+      let wrote = false;
+      await new Promise((resolve, reject) => {
+        let buf = '';
+        gRes.data.on('data', chunk => {
+          buf += chunk.toString('utf8');
+          let idx;
+          while ((idx = buf.indexOf('\n')) !== -1) {
+            const line = buf.slice(0, idx).trim();
+            buf = buf.slice(idx + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === '[DONE]') continue;
+            try {
+              const t = JSON.parse(payload).choices?.[0]?.delta?.content || '';
+              if (t) { wrote = true; res.write(t); }
+            } catch {}
+          }
+        });
+        gRes.data.on('end', resolve);
+        gRes.data.on('error', reject);
+      });
+      if (wrote) return true;
+    } catch (err) {
+      console.error(`[ai] groq stream ${model} failed:`,
+        err.response?.status || err.message);
+    }
+  }
+  return false;
 }
 
 // ── Security middleware ───────────────────────────────────
@@ -726,8 +824,12 @@ ${financialContext}
       }
     }
 
+    // Gemini streaming failed (or is geo-blocked here) → stream from Groq so the
+    // answer still appears progressively rather than after a long pause.
+    if (await streamGroqInto(res, fullPrompt, 1024)) return res.end();
+
     // Streaming failed entirely → non-streaming fallback (still plain text)
-    const text = await groqChat(fullPrompt, 1024);
+    const text = await aiComplete(fullPrompt, 1024);
     res.write(text);
     res.end();
   } catch (error) {
@@ -939,7 +1041,7 @@ ${rawText.slice(0, 30000)}`;
         required: ['date', 'amount', 'description', 'category']
       }
     };
-    const aiText = await groqChat(prompt, 32768, { temperature: 0, responseSchema: importSchema });
+    const aiText = await aiComplete(prompt, 32768, { temperature: 0, responseSchema: importSchema });
     console.log('AI raw response length:', aiText.length);
 
     // Strip markdown code fences if present
@@ -1019,6 +1121,7 @@ app.get('/api/health', async (req, res) => {
   const config = {
     dbUrl:  process.env.DATABASE_URL   ? 'set' : 'MISSING',
     gemini: GEMINI_API_KEY             ? 'set' : 'MISSING',
+    groq:   GROQ_API_KEY               ? 'set' : 'MISSING',
     lean:   (LEAN_APP_ID && LEAN_CLIENT_SECRET) ? 'set' : 'MISSING',
     leanApiBase: LEAN_API_BASE
   };

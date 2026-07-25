@@ -1031,6 +1031,25 @@ app.get('/api/health', async (req, res) => {
       config.egress = { country: geo.data.country, region: geo.data.region, city: geo.data.city };
     } catch (e) { config.egress = { error: e.message }; }
   }
+  // ?probe=1 checks which AI providers this region can reach at all. An auth
+  // error means reachable; a geo/location error means blocked here.
+  if (req.query.probe === '1') {
+    const targets = {
+      gemini: 'https://generativelanguage.googleapis.com/v1beta/models?key=probe',
+      groq: 'https://api.groq.com/openai/v1/models',
+      openrouter: 'https://openrouter.ai/api/v1/models'
+    };
+    config.probe = {};
+    for (const [name, url] of Object.entries(targets)) {
+      try {
+        const r = await axios.get(url, { timeout: 10000, validateStatus: () => true });
+        config.probe[name] = `${r.status} ok-reachable`;
+      } catch (e) {
+        const msg = e.response?.data?.error?.message || e.response?.statusText || e.message;
+        config.probe[name] = `${e.response?.status || e.code}: ${String(msg).slice(0, 80)}`;
+      }
+    }
+  }
   try {
     await pool.query('SELECT 1');
     res.json({ ok: true, db: 'connected', ...config });

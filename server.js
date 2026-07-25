@@ -84,7 +84,10 @@ if (!GEMINI_API_KEY) console.error('⚠️  GEMINI_API_KEY env var is not set!')
 // day can exhaust it. Groq is reachable from those regions and has its own quota.
 const GROQ_API_KEY = process.env.GROQ_API_KEY && !/YOUR_.*_HERE/.test(process.env.GROQ_API_KEY)
   ? process.env.GROQ_API_KEY : null;
-const GROQ_MODELS = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant')
+// Ordered by observed Arabic quality on this app's prompts. Llama writes visibly
+// broken Arabic here (English words leak in mid-sentence), so it is the last
+// resort rather than the default. Override with GROQ_MODELS to re-rank.
+const GROQ_MODELS = (process.env.GROQ_MODELS || 'openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile')
   .split(',').map(s => s.trim()).filter(Boolean);
 // Groq charges the *requested* completion size against a per-minute token
 // budget and answers 413 when it will not fit, so a Gemini-sized ask (32k)

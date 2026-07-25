@@ -86,6 +86,10 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY && !/YOUR_.*_HERE/.test(process.en
   ? process.env.GROQ_API_KEY : null;
 const GROQ_MODELS = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant')
   .split(',').map(s => s.trim()).filter(Boolean);
+// Groq charges the *requested* completion size against a per-minute token
+// budget and answers 413 when it will not fit, so a Gemini-sized ask (32k)
+// is rejected outright. Cap it and step down on 413.
+const GROQ_MAX_TOKENS = Number(process.env.GROQ_MAX_TOKENS) || 8192;
 
 // Helper: call Gemini with retry + model fallback for 503 overload
 async function geminiComplete(prompt, maxTokens = 4096, opts = {}) {
@@ -140,27 +144,34 @@ async function groqComplete(prompt, maxTokens = 4096, opts = {}) {
   if (!GROQ_API_KEY) throw new Error('GROQ_API_KEY not set');
   let lastErr;
   for (const model of GROQ_MODELS) {
-    try {
-      const body = {
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: Math.min(maxTokens, 32768),
-        temperature: opts.temperature !== undefined ? opts.temperature : 0.2
-      };
-      // Groq has JSON mode but no schema enforcement; the caller's parser is
-      // already lenient, so ask for valid JSON and let it do the shaping.
-      if (opts.responseSchema) body.response_format = { type: 'json_object' };
-      const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', body, {
-        headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-        timeout: 60000
-      });
-      const text = res.data.choices?.[0]?.message?.content?.trim();
-      if (text) return text;
-      throw new Error('Empty response');
-    } catch (err) {
-      lastErr = err;
-      console.error(`[ai] groq ${model} failed:`,
-        err.response?.data?.error?.message || err.response?.status || err.message);
+    let cap = Math.min(maxTokens, GROQ_MAX_TOKENS);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const body = {
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: cap,
+          temperature: opts.temperature !== undefined ? opts.temperature : 0.2
+        };
+        // Groq has JSON mode but no schema enforcement; the caller's parser is
+        // already lenient, so ask for valid JSON and let it do the shaping.
+        if (opts.responseSchema) body.response_format = { type: 'json_object' };
+        const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', body, {
+          headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+          timeout: 60000
+        });
+        const text = res.data.choices?.[0]?.message?.content?.trim();
+        if (text) return text;
+        throw new Error('Empty response');
+      } catch (err) {
+        lastErr = err;
+        const code = err.response?.status;
+        console.error(`[ai] groq ${model} (cap ${cap}) failed:`,
+          err.response?.data?.error?.message || code || err.message);
+        // 413 = the asked-for size does not fit the token budget; halve and retry.
+        if (code === 413 && cap > 1024) { cap = Math.floor(cap / 2); continue; }
+        break; // anything else: move to the next model
+      }
     }
   }
   throw lastErr;

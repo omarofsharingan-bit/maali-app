@@ -6,6 +6,10 @@ databases:
 
 services:
   - type: web
+    # NOTE: this name is what Render created the service under; its public URL is
+    # maali-app.onrender.com. Renaming it here does not rename the URL — Render
+    # fixes the subdomain at creation — and risks provisioning a *new* service,
+    # so leave it alone. The live app is https://qurushak.onrender.com.
     name: maali-app
     env: node
     plan: free
@@ -16,9 +20,25 @@ services:
         fromDatabase:
           name: maali-db
           property: connectionString
-      - key: GEMINI_API_KEY
-        sync: false  # set manually in Render dashboard so it never leaks to git
       - key: JWT_SECRET
         generateValue: true
       - key: NODE_ENV
         value: production
+      # Declared so a blueprint sync cannot wipe values set by hand in the
+      # dashboard. sync: false means "managed manually, never stored in git".
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false  # fallback AI provider — required where Gemini geo-blocks us
+      - key: LEAN_APP_ID
+        sync: false
+      - key: LEAN_CLIENT_SECRET
+        sync: false
+      - key: LEAN_WEBHOOK_SECRET
+        sync: false
+      - key: LEAN_SANDBOX
+        sync: false
+      - key: LEAN_AUTH_BASE
+        sync: false  # Lean is region-split; KSA credentials only work on *.sa hosts
+      - key: LEAN_API_BASE
+        sync: false

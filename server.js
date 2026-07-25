@@ -242,17 +242,22 @@ async function streamGroqInto(res, prompt, maxTokens = 1024) {
 // CSP safely is a follow-up on its own.
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
-// Same-origin app (the frontend is served by this server), so lock CORS to the
-// known hosts instead of echoing any origin. Same-origin requests send no Origin
-// header and are unaffected; this only blocks other websites' scripts.
+// The frontend is served by this same server, so only *other* websites need to
+// be kept out. An unknown origin is answered without CORS headers rather than
+// rejected: the browser still blocks the cross-origin read, while a same-origin
+// POST (which also carries an Origin header) keeps working even from a host that
+// is not listed. Erroring here would take the whole app down on a stale list.
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ||
-  'https://qurushak.onrender.com,https://maali-app.onrender.com,https://qurushak.com,https://www.qurushak.com')
+  'https://qurushak.onrender.com,https://qurushak.com,https://www.qurushak.com')
   .split(',').map(s => s.trim());
 app.use(cors({
   origin(origin, cb) {
-    // Non-browser clients (curl, health checks) and same-origin requests have no origin.
-    if (!origin || ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
-    cb(new Error('Not allowed by CORS'));
+    // Non-browser clients (curl, health checks) send no Origin at all.
+    const ok = !origin
+      || ALLOWED_ORIGINS.includes(origin)
+      || /^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(origin)
+      || /^http:\/\/localhost(:\d+)?$/.test(origin);
+    cb(null, ok);
   }
 }));
 

@@ -87,8 +87,48 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY && !/YOUR_.*_HERE/.test(process.en
 // Ordered by observed Arabic quality on this app's prompts. Llama writes visibly
 // broken Arabic here (English words leak in mid-sentence), so it is the last
 // resort rather than the default. Override with GROQ_MODELS to re-rank.
-const GROQ_MODELS = (process.env.GROQ_MODELS || 'openai/gpt-oss-120b,qwen/qwen3.6-27b,llama-3.3-70b-versatile')
+const GROQ_MODELS = (process.env.GROQ_MODELS || 'openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.3-70b-versatile')
   .split(',').map(s => s.trim()).filter(Boolean);
+
+// Some models emit chain-of-thought wrapped in <think>…</think> inside the normal
+// content. It is English, it is not an answer, and it must never reach the user.
+const stripThinking = t => String(t)
+  .replace(/<think>[\s\S]*?<\/think>/gi, '')
+  .replace(/<think>[\s\S]*$/i, '')   // truncated: the closing tag never arrived
+  .trim();
+
+// Streaming needs the same removal, but a tag can straddle two chunks, so hold
+// back a tail as long as the longest tag before writing anything out.
+function thinkFilter(write) {
+  const TAG_MAX = 8; // '</think>'
+  let carry = '', inThink = false;
+  return {
+    push(chunk) {
+      carry += chunk;
+      for (;;) {
+        if (inThink) {
+          const end = carry.indexOf('</think>');
+          if (end === -1) { carry = carry.slice(-TAG_MAX); return; }
+          carry = carry.slice(end + 8);
+          inThink = false;
+        } else {
+          const start = carry.indexOf('<think>');
+          if (start === -1) {
+            if (carry.length > TAG_MAX) {
+              write(carry.slice(0, carry.length - TAG_MAX));
+              carry = carry.slice(carry.length - TAG_MAX);
+            }
+            return;
+          }
+          if (start > 0) write(carry.slice(0, start));
+          carry = carry.slice(start + 7);
+          inThink = true;
+        }
+      }
+    },
+    flush() { if (!inThink && carry) write(carry); carry = ''; }
+  };
+}
 // Groq charges the *requested* completion size against a per-minute token
 // budget and answers 413 when it will not fit, so a Gemini-sized ask (32k)
 // is rejected outright. Cap it and step down on 413.
@@ -163,7 +203,7 @@ async function groqComplete(prompt, maxTokens = 4096, opts = {}) {
           headers: { Authorization: `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
           timeout: 60000
         });
-        const text = res.data.choices?.[0]?.message?.content?.trim();
+        const text = stripThinking(res.data.choices?.[0]?.message?.content || '');
         if (text) return text;
         throw new Error('Empty response');
       } catch (err) {
@@ -209,6 +249,7 @@ async function streamGroqInto(res, prompt, maxTokens = 1024, temperature = 0.2) 
         }
       );
       let wrote = false;
+      const filter = thinkFilter(s => { if (s) { wrote = true; res.write(s); } });
       await new Promise((resolve, reject) => {
         let buf = '';
         gRes.data.on('data', chunk => {
@@ -222,11 +263,11 @@ async function streamGroqInto(res, prompt, maxTokens = 1024, temperature = 0.2) 
             if (!payload || payload === '[DONE]') continue;
             try {
               const t = JSON.parse(payload).choices?.[0]?.delta?.content || '';
-              if (t) { wrote = true; res.write(t); }
+              if (t) filter.push(t);
             } catch {}
           }
         });
-        gRes.data.on('end', resolve);
+        gRes.data.on('end', () => { filter.flush(); resolve(); });
         gRes.data.on('error', reject);
       });
       if (wrote) return true;

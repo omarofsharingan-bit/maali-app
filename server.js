@@ -40,6 +40,43 @@ const LEAN_API_BASE  = process.env.LEAN_API_BASE ||
   (LEAN_SANDBOX ? 'https://sandbox.sa.leantech.me' : 'https://sa.leantech.me');
 if (!LEAN_APP_ID || !LEAN_CLIENT_SECRET) console.error('⚠️  LEAN_APP_ID / LEAN_CLIENT_SECRET not set — bank linking disabled');
 
+// ── Tarabut (open banking, alternative provider) ──────────
+// Which provider serves bank linking. Both stay in the codebase so switching is
+// an env change, not a rewrite.
+const BANK_PROVIDER = (process.env.BANK_PROVIDER || 'lean').toLowerCase();
+const TARABUT_CLIENT_ID     = process.env.TARABUT_CLIENT_ID;
+const TARABUT_CLIENT_SECRET = process.env.TARABUT_CLIENT_SECRET;
+const TARABUT_AUTH_BASE = process.env.TARABUT_AUTH_BASE || 'https://oauth.tarabutgateway.io/sandbox';
+// Saudi-region host; the generic api.tarabutgateway.io host 404s every path.
+const TARABUT_API_BASE  = process.env.TARABUT_API_BASE  || 'https://api.sau.sandbox.tarabutgateway.io';
+// Where the bank sends the user back to. Must be registered in the Tarabut portal.
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://qurushak.onrender.com';
+
+// Tarabut tokens live 15 minutes — far shorter than Lean's hour — so cache with
+// a modest margin and re-mint often.
+let tarabutTokenCache = null;
+async function tarabutToken() {
+  if (tarabutTokenCache && tarabutTokenCache.expiresAt > Date.now() + 60000) return tarabutTokenCache.token;
+  const r = await axios.post(`${TARABUT_AUTH_BASE}/token`,
+    { clientId: TARABUT_CLIENT_ID, clientSecret: TARABUT_CLIENT_SECRET, grantType: 'client_credentials' },
+    { headers: { 'Content-Type': 'application/json', accept: 'application/json' }, timeout: 20000 });
+  tarabutTokenCache = {
+    token: r.data.accessToken,
+    expiresAt: Date.now() + ((r.data.expiresIn || 900) * 1000)
+  };
+  return tarabutTokenCache.token;
+}
+
+async function tarabutCall(method, pathname, { body, userId } = {}) {
+  const token = await tarabutToken();
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', accept: 'application/json' };
+  // Scopes every request to one of our users, which is how Tarabut ties a
+  // consent and its data back to an app user.
+  if (userId != null) headers['X-TG-CustomerUserId'] = String(userId);
+  const res = await axios({ method, url: `${TARABUT_API_BASE}${pathname}`, data: body, headers, timeout: 30000 });
+  return res.data;
+}
+
 // Lean issues short-lived JWTs (~1h). Cache per scope so we are not minting one per request.
 const leanTokenCache = new Map();
 async function leanToken(scope = 'api') {
@@ -487,6 +524,37 @@ async function getOrCreateLeanCustomer(userId) {
 
 // Everything the LinkSDK needs to open the bank-consent dialog.
 app.post('/api/bank/link-token', authenticateToken, async (req, res) => {
+  // Tarabut has no embedded widget: create an intent, then send the browser to
+  // the bank and back to our callback. The frontend just follows redirectUrl.
+  if (BANK_PROVIDER === 'tarabut') {
+    if (!TARABUT_CLIENT_ID || !TARABUT_CLIENT_SECRET) {
+      return res.status(503).json({ error: 'ربط البنك غير مفعّل حالياً' });
+    }
+    try {
+      const data = await tarabutCall('post', '/accountInformation/v1/intent', {
+        userId: req.userId,
+        body: {
+          user: { customerUserId: String(req.userId) },
+          redirectUrl: `${APP_BASE_URL}/api/bank/callback`
+        }
+      });
+      const redirectUrl = data.redirectUrl || data.url || data.intentUrl;
+      if (!redirectUrl) throw new Error('no redirectUrl in intent response');
+      await pool.query(
+        `INSERT INTO bank_connections (user_id, lean_customer_id, entity_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (lean_customer_id) DO UPDATE SET entity_id = EXCLUDED.entity_id`,
+        [req.userId, `tg-${req.userId}`, data.intentId || data.id || null]
+      );
+      return res.json({ provider: 'tarabut', redirectUrl });
+    } catch (error) {
+      const detail = error.response?.data || error.message;
+      console.error('Tarabut intent error:', JSON.stringify(detail).slice(0, 300));
+      // 401 here means the app is not entitled for Account Information yet.
+      return res.status(502).json({ error: 'تعذّر بدء ربط البنك — لم يتم تفعيل خدمة قراءة الحسابات بعد' });
+    }
+  }
+
   if (!LEAN_APP_ID || !LEAN_CLIENT_SECRET) {
     return res.status(503).json({ error: 'ربط البنك غير مفعّل حالياً' });
   }
@@ -496,6 +564,7 @@ app.post('/api/bank/link-token', authenticateToken, async (req, res) => {
     // The SDK needs a token scoped to this specific customer, not the api scope.
     const accessToken = await leanToken(`customer.${customerId}`);
     res.json({
+      provider: 'lean',
       app_token: LEAN_APP_ID,
       customer_id: customerId,
       access_token: accessToken,
@@ -638,15 +707,68 @@ async function syncLeanTransactions(userId) {
   return { synced: inserted, total, accounts: accounts.length };
 }
 
+// Tarabut sends the user back here after they authorise at their bank. The
+// redirect carries no session of ours, so just hand control back to the app and
+// let the signed-in frontend run the sync.
+app.get('/api/bank/callback', (req, res) => {
+  const failed = req.query.error || req.query.status === 'failed';
+  console.log('[tarabut callback]', JSON.stringify(req.query).slice(0, 200));
+  res.redirect(failed ? '/?bank=failed' : '/?bank=connected');
+});
+
+async function syncTarabutTransactions(userId) {
+  const accountsRes = await tarabutCall('get', '/accountInformation/v2/accounts', { userId });
+  const accounts = accountsRes.accounts || accountsRes.data || [];
+  if (!accounts.length) return { synced: 0, total: 0, pending: true };
+
+  let inserted = 0, total = 0;
+  for (const acc of accounts) {
+    const accountId = acc.accountId || acc.id;
+    if (!accountId) continue;
+    let txRes;
+    try {
+      txRes = await tarabutCall('get',
+        `/accountInformation/v2/accounts/${encodeURIComponent(accountId)}/transactions`, { userId });
+    } catch (e) {
+      console.error(`[tarabut sync] transactions failed for ${accountId}:`,
+        JSON.stringify(e.response?.data || e.message).slice(0, 200));
+      continue;
+    }
+    const txs = txRes.transactions || txRes.data || [];
+    total += txs.length;
+    for (const tx of txs) {
+      const txId = tx.transactionId || tx.id;
+      const raw = tx.amount?.value ?? tx.amount ?? 0;
+      // Tarabut states direction separately; credit is money in, debit money out.
+      const dir = String(tx.creditDebitIndicator || tx.type || '').toUpperCase();
+      const amount = dir.includes('DEBIT') ? -Math.abs(Number(raw)) : Number(raw);
+      const date = String(tx.bookingDateTime || tx.valueDateTime || tx.date || '').slice(0, 10);
+      if (!txId || !date) continue;
+      const desc = tx.description || tx.narrative || tx.merchantName || 'معاملة بنكية';
+      const r = await pool.query(
+        `INSERT INTO transactions (user_id, transaction_id, amount, description, category, transaction_date)
+         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (user_id, transaction_id) DO NOTHING`,
+        [userId, txId, amount, desc, inferCategory(desc) || 'أخرى', date]
+      );
+      if (r.rowCount > 0) inserted++;
+    }
+  }
+  await pool.query('UPDATE bank_connections SET last_synced_at = NOW() WHERE user_id = $1', [userId]);
+  console.log(`[tarabut sync] user ${userId}: ${inserted} new of ${total}`);
+  return { synced: inserted, total, accounts: accounts.length };
+}
+
 app.post('/api/bank/sync', authenticateToken, async (req, res) => {
   try {
-    const result = await syncLeanTransactions(req.userId);
+    const result = BANK_PROVIDER === 'tarabut'
+      ? await syncTarabutTransactions(req.userId)
+      : await syncLeanTransactions(req.userId);
     if (result.pending) {
       return res.json({ success: false, pending: true, message: 'جاري تجهيز بيانات البنك…' });
     }
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('Lean sync error:', error.response?.data || error.message);
+    console.error(`${BANK_PROVIDER} sync error:`, JSON.stringify(error.response?.data || error.message).slice(0, 300));
     res.status(500).json({ error: 'تعذّر جلب المعاملات من البنك' });
   }
 });

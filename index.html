@@ -2720,6 +2720,11 @@
         const r = await apiFetch(`${API}/bank/link-token`, { method: 'POST' });
         const d = await r.json();
         if (!r.ok) return alert('❌ ' + (d.error || 'تعذّر بدء ربط البنك'));
+
+        // Tarabut has no embedded widget — the bank authorises on its own page
+        // and redirects back to us.
+        if (d.provider === 'tarabut') { window.location.href = d.redirectUrl; return; }
+
         if (!(await waitForLean())) return alert('❌ لم تُحمّل أداة الربط، تحقق من اتصالك وحدّث الصفحة');
         Lean.connect({
           app_token: d.app_token,
@@ -2738,6 +2743,22 @@
         btn.innerHTML = original;
       }
     }
+
+    // Returning from a bank redirect (Tarabut): pull the data, then clean the
+    // query string so a refresh does not re-trigger the sync.
+    (function handleBankReturn() {
+      const p = new URLSearchParams(location.search);
+      const state = p.get('bank');
+      if (!state) return;
+      history.replaceState({}, '', location.pathname);
+      if (state === 'failed') return alert('❌ لم يكتمل ربط البنك، حاول مرة أخرى');
+      if (state === 'connected') {
+        const wait = setInterval(() => {
+          if (authToken) { clearInterval(wait); syncBank(); }
+        }, 300);
+        setTimeout(() => clearInterval(wait), 15000);
+      }
+    })();
 
     // Lean populates bank data asynchronously, so poll until the webhook lands.
     async function syncBank(attempt = 0) {

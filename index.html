@@ -12,63 +12,69 @@
   <meta name="apple-mobile-web-app-title" content="قروشك" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="icon" type="image/png" href="/icon-192.png" />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
   <style>
     /* ══ RESET ══ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     /* ══ VARIABLES ══
-       Palette: ink and brass. A ledger read by lamplight — the ground is a warm
-       green-black rather than neutral charcoal, figures sit in aged paper, and
-       money in / money out are pigments (viridian, clay) instead of the usual
-       signal-green and alarm-red. Token names are unchanged so the whole app
-       re-skins from here. */
+       The "Organic" system from the redesign handoff: a warm sand ground,
+       terracotta as the primary accent and sage as the second. The app's own
+       token names are kept, so every existing rule re-skins from this block
+       instead of needing to be rewritten. */
     :root {
-      --bg3: #0B0E0A;
-      --bg:  #10130F;
-      --bg2: #181C17;
-      --bg2a:#1F241D;
+      /* Ground and surfaces — neutral ramp 100–300 over the sand page. */
+      --bg3: #f5ead8;   /* page */
+      --bg:  #f9f4ed;   /* cards (neutral-100) */
+      --bg2: #eee7db;   /* tracks, raised fills (neutral-200) */
+      --bg2a:#dcd3c4;   /* pressed / hover (neutral-300) */
 
-      --text:  #EAE7DC;
-      --text2: #8E9488;
-      --text3: #5A6056;
+      --text:  #201e1d;
+      --text2: #645c50; /* neutral-700 */
+      --text3: #a19786; /* neutral-500 */
 
-      /* Rules, not borders: hairlines warmed to the paper they sit on. */
-      --border:  rgba(234,231,220,0.07);
-      --border2: rgba(234,231,220,0.12);
-      --border3: rgba(234,231,220,0.20);
+      /* Solid hairlines, not translucent ones — the system draws 1px edges. */
+      --border:  #e4dccd;
+      --border2: #dcd3c4;
+      --border3: #c0b6a5;
 
-      --teal:   #16A06B;
-      --teal-d: #0E7049;
-      --teal-l: rgba(22,160,107,0.12);
-      --teal-g: rgba(22,160,107,0.20);
+      /* Primary accent is terracotta. Kept under the --teal name so the many
+         existing accent rules pick it up untouched. */
+      --teal:   #c67139;
+      --teal-d: #b2622d;
+      --teal-l: #ffe1d0;
+      --teal-g: rgba(198,113,57,0.22);
 
-      --blue:   #5B93C7;
-      --blue-l: rgba(91,147,199,0.12);
+      /* Second accent: sage. */
+      --blue:   #728157;
+      --blue-l: #e1eecc;
 
-      /* Brass — the coin the app is named after. Second accent so no single
-         neon carries the page. */
-      --amber:  #C79A3A;
-      --amber-l:rgba(199,154,58,0.13);
+      --amber:  #d67f48;
+      --amber-l:#ffc6a5;
 
-      --red:    #C2553F;
-      --red-l:  rgba(194,85,63,0.13);
+      --red:    #a8402b;
+      --red-l:  #ffe1d0;
 
-      --purple: #9b7ef8;
-      --purple-l:rgba(155,126,248,0.12);
+      /* Remaining category hues, pulled onto the same sand/sage/terracotta ramp
+         so no chart segment reintroduces the old neon. */
+      --purple: #8fa073;
+      --purple-l:#ccdbb2;
 
-      --pink:   #f06292;
-      --pink-l: rgba(240,98,146,0.12);
+      --pink:   #c0b6a5;
+      --pink-l: #eee7db;
 
-      /* Kufic for figures and eyebrows only — its geometry echoes the wordmark.
-         Body text stays Plex Arabic, which is built for reading at UI sizes. */
-      --display: 'Reem Kufi', 'IBM Plex Sans Arabic', sans-serif;
+      /* Headings and figures in Baloo Bhaijaan 2 — rounded, and drawn for
+         Arabic. Plex Arabic keeps the body text. */
+      --display: 'Baloo Bhaijaan 2', 'IBM Plex Sans Arabic', sans-serif;
 
-      --r8:  8px;
-      --r12: 12px;
-      --r16: 16px;
-      --r20: 20px;
+      /* Organic is a soft-cornered system: everything steps up in radius, and
+         pills are fully round. */
+      --r8:  12px;
+      --r12: 18px;
+      --r16: 24px;
+      --r20: 28px;
+      --pill: 999px;
 
       /* aliases used by the tutorial overlay */
       --card: var(--bg2);
@@ -207,36 +213,36 @@
     .auth-error.visible { display: block; }
 
     /* ══ LIGHT THEME ══ */
-    /* Light is the same ledger by daylight: unbleached paper rather than screen
-       white, ink that stays warm, and the identical pigments held one step
-       darker so they carry against a pale ground. */
+    /* Organic ships one ground, and the handoff specifies no dark variant, so
+       the theme toggle resolves to the same palette rather than to a half-
+       converted dark screen. Restore this block when a dark ramp is specified. */
     [data-theme="light"] {
-      --bg3: #E8E4D8;
-      --bg:  #F6F3EA;
-      --bg2: #EFEBE0;
-      --bg2a:#E3DED1;
+      --bg3: #f5ead8;
+      --bg:  #f9f4ed;
+      --bg2: #eee7db;
+      --bg2a:#dcd3c4;
 
-      --text:  #1A1D18;
-      --text2: #66695F;
-      --text3: #9A9C92;
+      --text:  #201e1d;
+      --text2: #645c50;
+      --text3: #a19786;
 
-      --border:  rgba(26,29,24,0.09);
-      --border2: rgba(26,29,24,0.14);
-      --border3: rgba(26,29,24,0.22);
+      --border:  #e4dccd;
+      --border2: #dcd3c4;
+      --border3: #c0b6a5;
 
-      --teal:   #0E7049;
-      --teal-d: #0A5537;
-      --teal-l: rgba(14,112,73,0.10);
-      --teal-g: rgba(14,112,73,0.18);
+      --teal:   #c67139;
+      --teal-d: #b2622d;
+      --teal-l: #ffe1d0;
+      --teal-g: rgba(198,113,57,0.22);
 
-      --blue:   #2F6690;
-      --blue-l: rgba(47,102,144,0.10);
+      --blue:   #728157;
+      --blue-l: #e1eecc;
 
-      --amber:  #9A7420;
-      --amber-l:rgba(154,116,32,0.12);
+      --amber:  #d67f48;
+      --amber-l:#ffc6a5;
 
-      --red:    #A8402B;
-      --red-l:  rgba(168,64,43,0.11);
+      --red:    #a8402b;
+      --red-l:  #ffe1d0;
 
       --purple: #6944c2;
       --purple-l:rgba(105,68,194,0.10);
@@ -509,36 +515,35 @@
     /* One question deserves one answer. What is left this month is set at
        display size and given the whole width; the four supporting figures sit
        below it as ledger entries, divided by rules rather than boxed in cards. */
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
-    .kpi { padding: 18px 20px 4px; }
-    .kpi-grid > .kpi:nth-child(n+3) { border-inline-start: 1px solid var(--border); }
-
+    /* Stat cards per the handoff: an even grid, the leading card filled in
+       terracotta, the rest on neutral-100. Figures in the heading face. */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .kpi {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--r20);
+      padding: 20px 22px;
+      box-shadow: 0 1px 2px rgba(46,43,37,.14);
+    }
     .kpi-main {
-      grid-column: 1 / -1;
-      padding: 4px 0 24px;
-      border-bottom: 1px solid var(--border2);
-      margin-bottom: 4px;
+      grid-column: span 1;
+      background: var(--teal);
+      border-color: var(--teal);
+      color: #f9f4ed;
+      box-shadow: 0 3px 10px rgba(46,43,37,.16);
     }
-    .kpi-lbl {
-      font-size: 11px; color: var(--text2); font-weight: 600;
-      letter-spacing: 0.10em; margin-bottom: 8px;
-    }
-    .kpi-main .kpi-lbl { font-family: var(--display); letter-spacing: 0.22em; font-size: 12px; }
+    .kpi-main .kpi-lbl,
+    .kpi-main .kpi-unit { color: rgba(249,244,237,0.82); }
+    .kpi-main .kpi-val  { color: #f9f4ed; }
 
+    .kpi-lbl { font-size: 12.5px; color: var(--text2); font-weight: 600; margin-bottom: 8px; }
     .kpi-val {
-      font-size: 25px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.15;
-      font-variant-numeric: tabular-nums;
-    }
-    .kpi-main .kpi-val {
       font-family: var(--display);
-      font-size: clamp(54px, 8.5vw, 86px);
-      font-weight: 500;          /* Kufic carries weight in its geometry, not its stroke */
-      letter-spacing: -0.02em;
-      line-height: 1;
+      font-size: 34px; font-weight: 700; line-height: 1.15;
+      letter-spacing: -0.2px; font-variant-numeric: tabular-nums;
     }
-    .kpi-val-cat { font-size: 19px; }
-    .kpi-unit { font-size: 11px; color: var(--text2); margin-top: 6px; }
-    .kpi-main .kpi-unit { font-size: 12.5px; margin-top: 12px; letter-spacing: 0.04em; }
+    .kpi-val-cat { font-size: 23px; }
+    .kpi-unit { font-size: 12px; color: var(--text2); margin-top: 6px; }
 
     /* Insights sit beside the score card, tips side by side */
     .insights-card { grid-column: span 2; }

@@ -1,6 +1,8 @@
 // قروشك service worker — network-first so deploys are picked up immediately,
 // cache fallback so the app shell still opens offline.
-const CACHE = 'qurushak-v1';
+// Bump on any release that changes the look. Activation deletes every other
+// cache, so a stale app shell cannot survive a deploy.
+const CACHE = 'qurushak-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 

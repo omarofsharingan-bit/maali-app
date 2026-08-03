@@ -76,6 +76,12 @@
       --r20: 28px;
       --pill: 999px;
 
+      /* Surfaces that differ per ramp rather than per component. */
+      --header-bg: rgba(245,234,216,0.88);
+      --shadow-sm: 0 1px 2px rgba(46,43,37,.14);
+      --shadow-lg: 0 3px 10px rgba(46,43,37,.16);
+      --logo-filter: none;   /* the wordmark is drawn dark-on-transparent */
+
       /* aliases used by the tutorial overlay */
       --card: var(--bg2);
       --accent: var(--teal);
@@ -213,36 +219,43 @@
     .auth-error.visible { display: block; }
 
     /* ══ LIGHT THEME ══ */
-    /* Organic ships one ground, and the handoff specifies no dark variant, so
-       the theme toggle resolves to the same palette rather than to a half-
-       converted dark screen. Restore this block when a dark ramp is specified. */
-    [data-theme="light"] {
-      --bg3: #f5ead8;
-      --bg:  #f9f4ed;
-      --bg2: #eee7db;
-      --bg2a:#dcd3c4;
+    /* Dark ramp — an extension of Organic, not a different system. The ground
+       is the neutral ramp continued past 900 into warm near-black rather than
+       neutral charcoal, so the sand identity survives with the lights off.
+       Terracotta and sage are lifted two steps to hold their chroma on dark;
+       used at their light-mode values they go muddy. */
+    [data-theme="dark"] {
+      --bg3: #191713;
+      --bg:  #221f1a;
+      --bg2: #2b2721;
+      --bg2a:#37322a;
 
-      --text:  #201e1d;
-      --text2: #645c50;
-      --text3: #a19786;
+      --text:  #f2e9da;
+      --text2: #b3a894;
+      --text3: #8a7f6d;
 
-      --border:  #e4dccd;
-      --border2: #dcd3c4;
-      --border3: #c0b6a5;
+      --border:  #332e27;
+      --border2: #413a31;
+      --border3: #574d41;
 
-      --teal:   #c67139;
-      --teal-d: #b2622d;
-      --teal-l: #ffe1d0;
-      --teal-g: rgba(198,113,57,0.22);
+      --teal:   #e08a4f;
+      --teal-d: #c67139;
+      --teal-l: rgba(224,138,79,0.16);
+      --teal-g: rgba(224,138,79,0.26);
 
-      --blue:   #728157;
-      --blue-l: #e1eecc;
+      --blue:   #aebf92;
+      --blue-l: rgba(174,191,146,0.16);
 
-      --amber:  #d67f48;
-      --amber-l:#ffc6a5;
+      --amber:  #f6a06b;
+      --amber-l:rgba(246,160,107,0.18);
 
-      --red:    #a8402b;
-      --red-l:  #ffe1d0;
+      --red:    #e07a5f;
+      --red-l:  rgba(224,122,95,0.16);
+
+      --header-bg: rgba(25,23,19,0.88);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.45);
+      --shadow-lg: 0 6px 22px rgba(0,0,0,.50);
+      --logo-filter: invert(1) hue-rotate(180deg);
 
       --purple: #6944c2;
       --purple-l:rgba(105,68,194,0.10);
@@ -260,62 +273,44 @@
     /* Organic ships a single ground, so these run in both theme states rather
        than only under [data-theme="light"]. Left as theme-scoped, the base
        rules' hardcoded dark values painted black cards onto the sand page. */
+    /* Every surface here reads from a token, so one ramp swap re-themes the
+       app. Hardcoding these is what previously left black panels on sand. */
     html .header {
-      background: rgba(245,234,216,0.88);
+      background: var(--header-bg);
       border-bottom-color: var(--border);
     }
-    html .score-card {
-      background: var(--bg);
-    }
+    html .score-card { background: var(--bg); }
     html .score-card::before {
       background: radial-gradient(circle, var(--teal-g) 0%, transparent 70%);
       opacity: 0.35;
     }
-    html .card {
-      box-shadow: 0 2px 14px rgba(0,0,0,0.06);
-    }
-    html .card:hover {
-      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
-    }
-    html .logo-wordmark {
-      filter: none;
-    }
-    html .nav {
-      background: #dedad0;
-    }
+    html .card       { box-shadow: var(--shadow-sm); }
+    html .card:hover { box-shadow: var(--shadow-lg); }
+    html .logo-wordmark { filter: var(--logo-filter); }
+    html .nav { background: var(--bg2a); }
     html .nav-btn.active {
-      background: #ffffff;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+      background: var(--bg);
+      box-shadow: var(--shadow-sm);
     }
-    html .icon-btn {
-      background: #eae7de;
-    }
-    html ::-webkit-scrollbar-thumb {
-      background: #c8c4ba;
-    }
+    html .icon-btn { background: var(--bg2); }
+    html ::-webkit-scrollbar-thumb { background: var(--border3); }
     html .month-tab.active {
       background: linear-gradient(135deg, var(--teal), var(--teal-d));
     }
     html .chat-panel {
-      background: #f2f0e8;
-      border-color: rgba(0,0,0,0.10);
+      background: var(--bg3);
+      border-color: var(--border2);
     }
     html .bubble.ai {
-      background: #ffffff;
-      border-color: rgba(0,0,0,0.08);
+      background: var(--bg);
+      border-color: var(--border);
     }
     html .bubble.user {
       background: linear-gradient(135deg, var(--teal), var(--teal-d));
     }
-    html .chat-in {
-      background: #ffffff;
-    }
-    html .form-input {
-      background: #ffffff;
-    }
-    html .goal-card {
-      background: #ffffff;
-    }
+    html .chat-in    { background: var(--bg); }
+    html .form-input { background: var(--bg); }
+    html .goal-card  { background: var(--bg); }
 
     /* ══ BASE ══ */
     html { scroll-behavior: smooth; }
@@ -2825,15 +2820,17 @@
 
     /* ── THEME TOGGLE ── */
     function toggleTheme() {
-      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-      if (isLight) {
+      // Light is the default ground now, so dark is the state we opt into.
+      // The icon shows the destination, not the current mode.
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
         document.documentElement.removeAttribute('data-theme');
-        document.getElementById('themeIcon').className = 'ti ti-sun';
-        localStorage.setItem('maali-theme', 'dark');
-      } else {
-        document.documentElement.setAttribute('data-theme', 'light');
         document.getElementById('themeIcon').className = 'ti ti-moon';
         localStorage.setItem('maali-theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.getElementById('themeIcon').className = 'ti ti-sun';
+        localStorage.setItem('maali-theme', 'dark');
       }
       // redraw canvas charts with the new theme's colors
       if (typeof lastScore === 'number') renderScore(lastScore);
@@ -2843,10 +2840,12 @@
     /* Apply saved theme immediately */
     (function() {
       const saved = localStorage.getItem('maali-theme');
-      if (saved === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-        const icon = document.getElementById('themeIcon');
-        if (icon) icon.className = 'ti ti-moon';
+      const icon = document.getElementById('themeIcon');
+      if (saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        if (icon) icon.className = 'ti ti-sun';
+      } else if (icon) {
+        icon.className = 'ti ti-moon';
       }
     })();
 

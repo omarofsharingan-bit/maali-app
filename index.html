@@ -251,65 +251,69 @@
       --pink-l: rgba(192,67,106,0.10);
     }
 
-    [data-theme="light"] body::before {
+    html body::before {
       background: radial-gradient(circle, rgba(18,138,96,0.07) 0%, transparent 65%);
     }
-    [data-theme="light"] body::after {
+    html body::after {
       background: radial-gradient(circle, rgba(45,111,204,0.05) 0%, transparent 65%);
     }
-    [data-theme="light"] .header {
-      background: rgba(242,240,232,0.88);
-      border-bottom-color: rgba(0,0,0,0.08);
+    /* Organic ships a single ground, so these run in both theme states rather
+       than only under [data-theme="light"]. Left as theme-scoped, the base
+       rules' hardcoded dark values painted black cards onto the sand page. */
+    html .header {
+      background: rgba(245,234,216,0.88);
+      border-bottom-color: var(--border);
     }
-    [data-theme="light"] .score-card {
-      background: linear-gradient(160deg, #ffffff 0%, #edeade 100%);
+    html .score-card {
+      background: var(--bg);
     }
-    [data-theme="light"] .score-card::before {
-      background: radial-gradient(circle, rgba(18,138,96,0.07) 0%, transparent 70%);
+    html .score-card::before {
+      background: radial-gradient(circle, var(--teal-g) 0%, transparent 70%);
+      opacity: 0.35;
     }
-    [data-theme="light"] .card {
+    html .card {
       box-shadow: 0 2px 14px rgba(0,0,0,0.06);
     }
-    [data-theme="light"] .card:hover {
+    html .card:hover {
       box-shadow: 0 8px 32px rgba(0,0,0,0.10);
     }
-    [data-theme="light"] .logo-wordmark {
+    html .logo-wordmark {
       filter: none;
     }
-    [data-theme="light"] .nav {
+    html .nav {
       background: #dedad0;
     }
-    [data-theme="light"] .nav-btn.active {
+    html .nav-btn.active {
       background: #ffffff;
       box-shadow: 0 2px 10px rgba(0,0,0,0.10);
     }
-    [data-theme="light"] .icon-btn {
+    html .icon-btn {
       background: #eae7de;
     }
-    [data-theme="light"] ::-webkit-scrollbar-thumb {
+    html ::-webkit-scrollbar-thumb {
       background: #c8c4ba;
     }
-    [data-theme="light"] .month-tab.active {
+    html .month-tab.active {
       background: linear-gradient(135deg, var(--teal), var(--teal-d));
     }
-    [data-theme="light"] .chat-panel {
+    html .chat-panel {
       background: #f2f0e8;
       border-color: rgba(0,0,0,0.10);
     }
-    [data-theme="light"] .bubble.ai {
+    html .bubble.ai {
       background: #ffffff;
       border-color: rgba(0,0,0,0.08);
     }
-    [data-theme="light"] .bubble.user {
+    html .bubble.user {
       background: linear-gradient(135deg, var(--teal), var(--teal-d));
     }
-    [data-theme="light"] .chat-in {
+    html .chat-in {
       background: #ffffff;
     }
-    [data-theme="light"] .form-input {
+    html .form-input {
       background: #ffffff;
     }
-    [data-theme="light"] .goal-card {
+    html .goal-card {
       background: #ffffff;
     }
 
@@ -1396,7 +1400,7 @@
     .bnav-btn i { font-size: 21px; }
     .bnav-btn.active { color: var(--teal); }
     .bnav-btn.active i { filter: drop-shadow(0 0 8px var(--teal-g)); }
-    [data-theme="light"] .bnav { background: rgba(242,240,232,0.92); }
+    html .bnav { background: rgba(242,240,232,0.92); }
 
     @media (max-width: 640px) {
       #dash.active { grid-template-columns: 1fr; }

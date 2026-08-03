@@ -12,75 +12,51 @@
   <meta name="apple-mobile-web-app-title" content="قروشك" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="icon" type="image/png" href="/icon-192.png" />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
   <style>
     /* ══ RESET ══ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ══ VARIABLES ══
-       The "Organic" system from the redesign handoff: a warm sand ground,
-       terracotta as the primary accent and sage as the second. The app's own
-       token names are kept, so every existing rule re-skins from this block
-       instead of needing to be rewritten. */
+    /* ══ VARIABLES ══ */
     :root {
-      /* Ground and surfaces — neutral ramp 100–300 over the sand page. */
-      --bg3: #f5ead8;   /* page */
-      --bg:  #f9f4ed;   /* cards (neutral-100) */
-      --bg2: #eee7db;   /* tracks, raised fills (neutral-200) */
-      --bg2a:#dcd3c4;   /* pressed / hover (neutral-300) */
+      --bg3: #080807;
+      --bg:  #141412;
+      --bg2: #1e1e1c;
+      --bg2a:#252523;
 
-      --text:  #201e1d;
-      --text2: #645c50; /* neutral-700 */
-      --text3: #a19786; /* neutral-500 */
+      --text:  #f0ede6;
+      --text2: #888680;
+      --text3: #55534f;
 
-      /* Solid hairlines, not translucent ones — the system draws 1px edges. */
-      --border:  #e4dccd;
-      --border2: #dcd3c4;
-      --border3: #c0b6a5;
+      --border:  rgba(255,255,255,0.05);
+      --border2: rgba(255,255,255,0.10);
+      --border3: rgba(255,255,255,0.18);
 
-      /* Primary accent is terracotta. Kept under the --teal name so the many
-         existing accent rules pick it up untouched. */
-      --teal:   #c67139;
-      --teal-d: #b2622d;
-      --teal-l: #ffe1d0;
-      --teal-g: rgba(198,113,57,0.22);
+      --teal:   #1fbb8a;
+      --teal-d: #148a62;
+      --teal-l: rgba(31,187,138,0.12);
+      --teal-g: rgba(31,187,138,0.22);
 
-      /* Second accent: sage. */
-      --blue:   #728157;
-      --blue-l: #e1eecc;
+      --blue:   #4a9eff;
+      --blue-l: rgba(74,158,255,0.12);
 
-      --amber:  #d67f48;
-      --amber-l:#ffc6a5;
+      --amber:  #f5a623;
+      --amber-l:rgba(245,166,35,0.12);
 
-      --red:    #a8402b;
-      --red-l:  #ffe1d0;
+      --red:    #ff5c5c;
+      --red-l:  rgba(255,92,92,0.12);
 
-      /* Remaining category hues, pulled onto the same sand/sage/terracotta ramp
-         so no chart segment reintroduces the old neon. */
-      --purple: #8fa073;
-      --purple-l:#ccdbb2;
+      --purple: #9b7ef8;
+      --purple-l:rgba(155,126,248,0.12);
 
-      --pink:   #c0b6a5;
-      --pink-l: #eee7db;
+      --pink:   #f06292;
+      --pink-l: rgba(240,98,146,0.12);
 
-      /* Headings and figures in Baloo Bhaijaan 2 — rounded, and drawn for
-         Arabic. Plex Arabic keeps the body text. */
-      --display: 'Baloo Bhaijaan 2', 'IBM Plex Sans Arabic', sans-serif;
-
-      /* Organic is a soft-cornered system: everything steps up in radius, and
-         pills are fully round. */
-      --r8:  12px;
-      --r12: 18px;
-      --r16: 24px;
-      --r20: 28px;
-      --pill: 999px;
-
-      /* Surfaces that differ per ramp rather than per component. */
-      --header-bg: rgba(245,234,216,0.88);
-      --shadow-sm: 0 1px 2px rgba(46,43,37,.14);
-      --shadow-lg: 0 3px 10px rgba(46,43,37,.16);
-      --logo-filter: none;   /* the wordmark is drawn dark-on-transparent */
+      --r8:  8px;
+      --r12: 12px;
+      --r16: 16px;
+      --r20: 20px;
 
       /* aliases used by the tutorial overlay */
       --card: var(--bg2);
@@ -219,43 +195,33 @@
     .auth-error.visible { display: block; }
 
     /* ══ LIGHT THEME ══ */
-    /* Dark ramp — an extension of Organic, not a different system. The ground
-       is the neutral ramp continued past 900 into warm near-black rather than
-       neutral charcoal, so the sand identity survives with the lights off.
-       Terracotta and sage are lifted two steps to hold their chroma on dark;
-       used at their light-mode values they go muddy. */
-    [data-theme="dark"] {
-      --bg3: #191713;
-      --bg:  #221f1a;
-      --bg2: #2b2721;
-      --bg2a:#37322a;
+    [data-theme="light"] {
+      --bg3: #f2f0e8;
+      --bg:  #ffffff;
+      --bg2: #eae7de;
+      --bg2a:#dedad0;
 
-      --text:  #f2e9da;
-      --text2: #b3a894;
-      --text3: #8a7f6d;
+      --text:  #1c1b17;
+      --text2: #6e6b62;
+      --text3: #a09c90;
 
-      --border:  #332e27;
-      --border2: #413a31;
-      --border3: #574d41;
+      --border:  rgba(0,0,0,0.06);
+      --border2: rgba(0,0,0,0.10);
+      --border3: rgba(0,0,0,0.18);
 
-      --teal:   #e08a4f;
-      --teal-d: #c67139;
-      --teal-l: rgba(224,138,79,0.16);
-      --teal-g: rgba(224,138,79,0.26);
+      --teal:   #128a60;
+      --teal-d: #0d6848;
+      --teal-l: rgba(18,138,96,0.10);
+      --teal-g: rgba(18,138,96,0.20);
 
-      --blue:   #aebf92;
-      --blue-l: rgba(174,191,146,0.16);
+      --blue:   #2d6fcc;
+      --blue-l: rgba(45,111,204,0.10);
 
-      --amber:  #f6a06b;
-      --amber-l:rgba(246,160,107,0.18);
+      --amber:  #c57800;
+      --amber-l:rgba(197,120,0,0.10);
 
-      --red:    #e07a5f;
-      --red-l:  rgba(224,122,95,0.16);
-
-      --header-bg: rgba(25,23,19,0.88);
-      --shadow-sm: 0 1px 2px rgba(0,0,0,.45);
-      --shadow-lg: 0 6px 22px rgba(0,0,0,.50);
-      --logo-filter: invert(1) hue-rotate(180deg);
+      --red:    #d43a3a;
+      --red-l:  rgba(212,58,58,0.10);
 
       --purple: #6944c2;
       --purple-l:rgba(105,68,194,0.10);
@@ -264,53 +230,67 @@
       --pink-l: rgba(192,67,106,0.10);
     }
 
-    html body::before {
+    [data-theme="light"] body::before {
       background: radial-gradient(circle, rgba(18,138,96,0.07) 0%, transparent 65%);
     }
-    html body::after {
+    [data-theme="light"] body::after {
       background: radial-gradient(circle, rgba(45,111,204,0.05) 0%, transparent 65%);
     }
-    /* Organic ships a single ground, so these run in both theme states rather
-       than only under [data-theme="light"]. Left as theme-scoped, the base
-       rules' hardcoded dark values painted black cards onto the sand page. */
-    /* Every surface here reads from a token, so one ramp swap re-themes the
-       app. Hardcoding these is what previously left black panels on sand. */
-    html .header {
-      background: var(--header-bg);
-      border-bottom-color: var(--border);
+    [data-theme="light"] .header {
+      background: rgba(242,240,232,0.88);
+      border-bottom-color: rgba(0,0,0,0.08);
     }
-    html .score-card { background: var(--bg); }
-    html .score-card::before {
-      background: radial-gradient(circle, var(--teal-g) 0%, transparent 70%);
-      opacity: 0.35;
+    [data-theme="light"] .score-card {
+      background: linear-gradient(160deg, #ffffff 0%, #edeade 100%);
     }
-    html .card       { box-shadow: var(--shadow-sm); }
-    html .card:hover { box-shadow: var(--shadow-lg); }
-    html .logo-wordmark { filter: var(--logo-filter); }
-    html .nav { background: var(--bg2a); }
-    html .nav-btn.active {
-      background: var(--bg);
-      box-shadow: var(--shadow-sm);
+    [data-theme="light"] .score-card::before {
+      background: radial-gradient(circle, rgba(18,138,96,0.07) 0%, transparent 70%);
     }
-    html .icon-btn { background: var(--bg2); }
-    html ::-webkit-scrollbar-thumb { background: var(--border3); }
-    html .month-tab.active {
+    [data-theme="light"] .card {
+      box-shadow: 0 2px 14px rgba(0,0,0,0.06);
+    }
+    [data-theme="light"] .card:hover {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    }
+    [data-theme="light"] .logo-wordmark {
+      filter: none;
+    }
+    [data-theme="light"] .nav {
+      background: #dedad0;
+    }
+    [data-theme="light"] .nav-btn.active {
+      background: #ffffff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+    }
+    [data-theme="light"] .icon-btn {
+      background: #eae7de;
+    }
+    [data-theme="light"] ::-webkit-scrollbar-thumb {
+      background: #c8c4ba;
+    }
+    [data-theme="light"] .month-tab.active {
       background: linear-gradient(135deg, var(--teal), var(--teal-d));
     }
-    html .chat-panel {
-      background: var(--bg3);
-      border-color: var(--border2);
+    [data-theme="light"] .chat-panel {
+      background: #f2f0e8;
+      border-color: rgba(0,0,0,0.10);
     }
-    html .bubble.ai {
-      background: var(--bg);
-      border-color: var(--border);
+    [data-theme="light"] .bubble.ai {
+      background: #ffffff;
+      border-color: rgba(0,0,0,0.08);
     }
-    html .bubble.user {
+    [data-theme="light"] .bubble.user {
       background: linear-gradient(135deg, var(--teal), var(--teal-d));
     }
-    html .chat-in    { background: var(--bg); }
-    html .form-input { background: var(--bg); }
-    html .goal-card  { background: var(--bg); }
+    [data-theme="light"] .chat-in {
+      background: #ffffff;
+    }
+    [data-theme="light"] .form-input {
+      background: #ffffff;
+    }
+    [data-theme="light"] .goal-card {
+      background: #ffffff;
+    }
 
     /* ══ BASE ══ */
     html { scroll-behavior: smooth; }
@@ -481,21 +461,21 @@
       transform: translateY(-1px);
     }
 
-    /* Eyebrows, set in the Kufic face and tracked wide. Uppercase does nothing
-       for Arabic, so the label reads as a heading through spacing and rule. */
     .card-title {
-      font-family: var(--display);
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 700;
       margin-bottom: 18px;
-      color: var(--text2);
-      letter-spacing: 0.18em;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
 
     /* ══ KPI HERO (main-screen headline numbers) ══ */
     .kpi-hero {
       grid-column: 1 / -1;
-      background: var(--bg);
+      background:
+        radial-gradient(ellipse 60% 120% at 90% -20%, rgba(31,187,138,0.08), transparent 60%),
+        var(--bg);
     }
     .kpi-head {
       display: flex; justify-content: space-between; align-items: flex-start;
@@ -511,38 +491,20 @@
     }
     .kpi-details-btn:hover { background: var(--teal); color: #fff; box-shadow: 0 6px 20px var(--teal-g); }
 
-    /* One question deserves one answer. What is left this month is set at
-       display size and given the whole width; the four supporting figures sit
-       below it as ledger entries, divided by rules rather than boxed in cards. */
-    /* Stat cards per the handoff: an even grid, the leading card filled in
-       terracotta, the rest on neutral-100. Figures in the heading face. */
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .kpi-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr; gap: 12px; }
     .kpi {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--r20);
-      padding: 20px 22px;
-      box-shadow: 0 1px 2px rgba(46,43,37,.14);
+      background: var(--bg2); border: 0.5px solid var(--border);
+      border-radius: var(--r12); padding: 16px 18px;
     }
     .kpi-main {
-      grid-column: span 1;
-      background: var(--teal);
-      border-color: var(--teal);
-      color: #f9f4ed;
-      box-shadow: 0 3px 10px rgba(46,43,37,.16);
+      background: linear-gradient(145deg, var(--teal-l), transparent 70%), var(--bg2);
+      border-color: rgba(31,187,138,0.25);
     }
-    .kpi-main .kpi-lbl,
-    .kpi-main .kpi-unit { color: rgba(249,244,237,0.82); }
-    .kpi-main .kpi-val  { color: #f9f4ed; }
-
-    .kpi-lbl { font-size: 12.5px; color: var(--text2); font-weight: 600; margin-bottom: 8px; }
-    .kpi-val {
-      font-family: var(--display);
-      font-size: 34px; font-weight: 700; line-height: 1.15;
-      letter-spacing: -0.2px; font-variant-numeric: tabular-nums;
-    }
-    .kpi-val-cat { font-size: 23px; }
-    .kpi-unit { font-size: 12px; color: var(--text2); margin-top: 6px; }
+    .kpi-lbl { font-size: 11.5px; color: var(--text2); font-weight: 600; margin-bottom: 7px; }
+    .kpi-val { font-size: 28px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+    .kpi-main .kpi-val { font-size: 34px; }
+    .kpi-val-cat { font-size: 20px; }
+    .kpi-unit { font-size: 11px; color: var(--text2); margin-top: 5px; }
 
     /* Insights sit beside the score card, tips side by side */
     .insights-card { grid-column: span 2; }
@@ -553,17 +515,14 @@
     }
     @media (max-width: 1024px) {
       .kpi-grid { grid-template-columns: 1fr 1fr; }
-      /* Two per row: rules run between columns and along the top of each row,
-         so the grid still reads as ruled entries rather than floating text. */
-      .kpi-grid > .kpi:nth-child(n+3) { border-inline-start: none; border-top: 1px solid var(--border); }
-      .kpi-grid > .kpi:nth-child(odd):nth-child(n+3) { border-inline-start: 1px solid var(--border); }
+      .kpi-main { grid-column: span 2; }
     }
     @media (max-width: 640px) {
-      .kpi { padding: 14px 14px 4px; }
-      .kpi-val { font-size: 21px; }
-      .kpi-val-cat { font-size: 16px; }
-      .kpi-main { padding-bottom: 18px; }
-      .kpi-main .kpi-unit { margin-top: 8px; }
+      .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .kpi { padding: 13px 14px; }
+      .kpi-val { font-size: 22px; }
+      .kpi-main .kpi-val { font-size: 26px; }
+      .kpi-val-cat { font-size: 17px; }
     }
 
     /* ══ SCORE CARD ══ */
@@ -1395,7 +1354,7 @@
     .bnav-btn i { font-size: 21px; }
     .bnav-btn.active { color: var(--teal); }
     .bnav-btn.active i { filter: drop-shadow(0 0 8px var(--teal-g)); }
-    html .bnav { background: rgba(242,240,232,0.92); }
+    [data-theme="light"] .bnav { background: rgba(242,240,232,0.92); }
 
     @media (max-width: 640px) {
       #dash.active { grid-template-columns: 1fr; }
@@ -2820,17 +2779,15 @@
 
     /* ── THEME TOGGLE ── */
     function toggleTheme() {
-      // Light is the default ground now, so dark is the state we opt into.
-      // The icon shows the destination, not the current mode.
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      if (isDark) {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      if (isLight) {
         document.documentElement.removeAttribute('data-theme');
-        document.getElementById('themeIcon').className = 'ti ti-moon';
-        localStorage.setItem('maali-theme', 'light');
-      } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
         document.getElementById('themeIcon').className = 'ti ti-sun';
         localStorage.setItem('maali-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.getElementById('themeIcon').className = 'ti ti-moon';
+        localStorage.setItem('maali-theme', 'light');
       }
       // redraw canvas charts with the new theme's colors
       if (typeof lastScore === 'number') renderScore(lastScore);
@@ -2840,12 +2797,10 @@
     /* Apply saved theme immediately */
     (function() {
       const saved = localStorage.getItem('maali-theme');
-      const icon = document.getElementById('themeIcon');
-      if (saved === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        if (icon) icon.className = 'ti ti-sun';
-      } else if (icon) {
-        icon.className = 'ti ti-moon';
+      if (saved === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        const icon = document.getElementById('themeIcon');
+        if (icon) icon.className = 'ti ti-moon';
       }
     })();
 

@@ -2,7 +2,7 @@
 // cache fallback so the app shell still opens offline.
 // Bump on any release that changes the look. Activation deletes every other
 // cache, so a stale app shell cannot survive a deploy.
-const CACHE = 'qurushak-v2';
+const CACHE = 'qurushak-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
